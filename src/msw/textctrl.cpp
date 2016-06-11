@@ -361,6 +361,11 @@ wxTextCtrl::~wxTextCtrl()
     }
 #endif // wxUSE_DRAG_AND_DROP && wxUSE_RICHEDIT
 
+#if wxUSE_INKEDIT && wxUSE_RICHEDIT
+    if (m_isInkEdit)
+        DissociateHandle();
+#endif
+
     delete m_privateContextMenu;
 }
 
