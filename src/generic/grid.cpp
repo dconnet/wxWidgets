@@ -645,6 +645,13 @@ wxGridFitMode wxGridCellAttr::GetFitMode() const
     }
 }
 
+bool wxGridCellAttr::CanOverflow() const
+{
+    int hAlign;
+    GetAlignment(&hAlign, NULL);
+    return GetOverflow() && (hAlign == wxALIGN_LEFT);
+}
+
 // GetRenderer and GetEditor use a slightly different decision path about
 // which attribute to use.  If a non-default attr object has one then it is
 // used, otherwise the default editor or renderer is fetched from the grid and
@@ -6079,7 +6086,11 @@ void wxGrid::DrawGridCellArea( wxDC& dc, const wxGridCellCoordsArray& cells )
                 {
                     if (!m_table->IsEmptyCell(row + l, j))
                     {
-                        if (GetCellOverflow(row + l, j))
+                        wxGridCellAttr *attr = GetCellAttr(row + l, j);
+                        const bool canOverflow = attr->CanOverflow();
+                        attr->DecRef();
+
+                        if ( canOverflow )
                         {
                             wxGridCellCoords cell(row + l, j);
                             bool marked = false;
