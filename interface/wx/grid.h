@@ -4991,7 +4991,7 @@ public:
         (yet) matching calls to EndBatch(). While the grid's batch count is
         greater than zero the display will not be updated.
     */
-    int GetBatchCount();
+    int GetBatchCount() const;
 
     /**
         Returns the total number of grid columns.
@@ -5373,8 +5373,17 @@ public:
 
         This function can only be called if UseNativeColHeader() had been
         called.
+
+        @see IsUsingNativeHeader()
      */
     wxHeaderCtrl *GetGridColHeader() const;
+
+    /**
+        Return true if native header control is currently being used.
+
+        @since 3.1.4
+     */
+    bool IsUsingNativeHeader() const;
 
     //@}
 
