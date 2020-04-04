@@ -1596,41 +1596,34 @@ void GridFrame::OnBugsTable(wxCommandEvent& )
 // ----------------------------------------------------------------------------
 
 MyGridCellAttrProvider::MyGridCellAttrProvider()
+    : m_attrForOddRows(new wxGridCellAttr)
 {
-    m_attrForOddRows = new wxGridCellAttr;
     m_attrForOddRows->SetBackgroundColour(*wxLIGHT_GREY);
-}
-
-MyGridCellAttrProvider::~MyGridCellAttrProvider()
-{
-    m_attrForOddRows->DecRef();
 }
 
 wxGridCellAttr *MyGridCellAttrProvider::GetAttr(int row, int col,
                            wxGridCellAttr::wxAttrKind  kind /* = wxGridCellAttr::Any */) const
 {
-    wxGridCellAttr *attr = wxGridCellAttrProvider::GetAttr(row, col, kind);
+    wxObjectDataPtr<wxGridCellAttr>
+        attr(wxGridCellAttrProvider::GetAttr(row, col, kind));
 
     if ( row % 2 )
     {
         if ( !attr )
         {
             attr = m_attrForOddRows;
-            attr->IncRef();
         }
         else
         {
             if ( !attr->HasBackgroundColour() )
             {
-                wxGridCellAttr *attrNew = attr->Clone();
-                attr->DecRef();
-                attr = attrNew;
+                attr = attr->Clone();
                 attr->SetBackgroundColour(*wxLIGHT_GREY);
             }
         }
     }
 
-    return attr;
+    return attr.release();
 }
 
 void GridFrame::OnVTable(wxCommandEvent& )
@@ -1686,7 +1679,7 @@ BigGridFrame::BigGridFrame(long sizeGrid)
     //     must profile it...
     //m_table->SetAttrProvider(new MyGridCellAttrProvider);
 
-    m_grid->SetTable(m_table, true);
+    m_grid->AssignTable(m_table);
 
 #if defined __WXMOTIF__
     // MB: the grid isn't getting a sensible default size under wxMotif
@@ -1977,7 +1970,7 @@ BugsGridFrame::BugsGridFrame()
     wxGrid *grid = new wxGrid(this, wxID_ANY);
     wxGridTableBase *table = new BugsGridTable();
     table->SetAttrProvider(new MyGridCellAttrProvider);
-    grid->SetTable(table, true);
+    grid->AssignTable(table);
 
     wxGridCellAttr *attrRO = new wxGridCellAttr,
                    *attrRangeEditor = new wxGridCellAttr,
@@ -2338,7 +2331,7 @@ TabularGridFrame::TabularGridFrame()
     m_grid = new wxGrid(panel, wxID_ANY,
                         wxDefaultPosition, wxDefaultSize,
                         wxBORDER_STATIC | wxWANTS_CHARS);
-    m_grid->SetTable(m_table, true, wxGrid::wxGridSelectRows);
+    m_grid->AssignTable(m_table, wxGrid::wxGridSelectRows);
 
     m_grid->EnableDragColMove();
     m_grid->UseNativeColHeader();
