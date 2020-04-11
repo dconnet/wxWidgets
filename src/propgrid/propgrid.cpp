@@ -1331,9 +1331,7 @@ void wxPropertyGrid::CalculateFontAndBitmapStuff( int vspacing )
     GetTextExtent(wxS("jG"), &x, &y, 0, 0, &m_captionFont);
 
     m_lineHeight = m_fontHeight+(2*m_spacingy)+1;
-#if defined(__WXGTK3__)
-    m_lineHeight = wxMax(35, m_lineHeight);
-#endif
+
     // button spacing
     m_buttonSpacingY = (m_lineHeight - m_iconHeight) / 2;
     if ( m_buttonSpacingY < 0 ) m_buttonSpacingY = 0;
@@ -1836,6 +1834,36 @@ wxString& wxPropertyGrid::CreateEscapeSequences( wxString& dst_str, const wxStri
 bool wxPropertyGrid::IsSmallScreen()
 {
     return wxSystemSettings::GetScreenType() <= wxSYS_SCREEN_PDA;
+}
+
+// -----------------------------------------------------------------------
+
+// static
+wxBitmap wxPropertyGrid::RescaleBitmap(const wxBitmap& srcBmp,
+                                       double scaleX, double scaleY)
+{
+    int w = wxRound(srcBmp.GetWidth()*scaleX);
+    int h = wxRound(srcBmp.GetHeight()*scaleY);
+
+#if wxUSE_IMAGE
+    // Here we use high-quality wxImage scaling functions available
+    wxImage img = srcBmp.ConvertToImage();
+    img.Rescale(w, h, wxIMAGE_QUALITY_HIGH);
+    wxBitmap dstBmp(img);
+#else // !wxUSE_IMAGE
+    wxBitmap dstBmp(w, h, srcBmp.GetDepth());
+#if defined(__WXMSW__) || defined(__WXOSX__)
+    // wxBitmap::UseAlpha() is used only on wxMSW and wxOSX.
+    dstBmp.UseAlpha(srcBmp.HasAlpha());
+#endif // __WXMSW__ || __WXOSX__
+    {
+        wxMemoryDC dc(dstBmp);
+        dc.SetUserScale(scaleX, scaleY);
+        dc.DrawBitmap(srcBmp, 0, 0);
+    }
+#endif // wxUSE_IMAGE/!wxUSE_IMAGE
+
+    return dstBmp;
 }
 
 // -----------------------------------------------------------------------
