@@ -1890,7 +1890,7 @@ wxWindow* wxPropertyGrid::GenerateEditorTextCtrl( const wxPoint& pos,
 
    // Need to reduce width of text control on Mac
 #if defined(__WXMAC__)
-    s.x -= 8;
+    s.x -= 4;
 #endif
 
     // For label editors, trim the size to allow better splitter grabbing
@@ -1995,8 +1995,11 @@ wxWindow* wxPropertyGrid::GenerateEditorButton( const wxPoint& pos, const wxSize
     // If button is narrow make it a square and move it to the correct position
     s = but->GetSize();
     if ( s.x < s.y )
-        but->SetSize(wxSize(s.y, s.y));
-    p.x = pos.x + sz.x - s.y;
+    {
+        s.x = s.y;
+        but->SetSize(s);
+    }
+    p.x = pos.x + sz.x - s.x;
     but->Move(p);
 
     if ( selected->HasFlag(wxPG_PROP_READONLY) && !selected->HasFlag(wxPG_PROP_ACTIVE_BTN) )
@@ -2134,6 +2137,46 @@ int wxPGMultiButton::GenId( int itemid ) const
 }
 
 #if wxUSE_BMPBUTTON
+
+#if defined(__WXGTK__)
+// Dedicated wxBitmapButton with reduced internal borders
+#include "wx/gtk/private.h"
+
+class wxPGEditorBitmapButton : public wxBitmapButton
+{
+public:
+    wxPGEditorBitmapButton(wxWindow *parent, wxWindowID id,
+                     const wxBitmap& bitmap, const wxPoint& pos,
+                     const wxSize& size, long style = 0)
+        : wxBitmapButton(parent, id, bitmap, pos, size, style)
+    {
+#if defined(__WXGTK3__)
+        GTKApplyCssStyle("*{ padding:0 }");
+#else
+        GTKApplyWidgetStyle(true); // To enforce call to DoApplyWidgetStyle()
+#endif
+    }
+
+    virtual ~wxPGEditorBitmapButton() { }
+
+protected:
+    virtual void DoApplyWidgetStyle(GtkRcStyle *style) wxOVERRIDE
+    {
+        if ( style )
+        {
+            style->xthickness = 0;
+            style->ythickness = 0;
+        }
+        wxBitmapButton::DoApplyWidgetStyle(style);
+    }
+};
+
+#else // !__WXGTK__
+
+typedef wxBitmapButton wxPGEditorBitmapButton;
+
+#endif // __WXGTK__ / !__WXGTK__
+
 void wxPGMultiButton::Add( const wxBitmap& bitmap, int itemid )
 {
     itemid = GenId(itemid);
@@ -2144,16 +2187,16 @@ void wxPGMultiButton::Add( const wxBitmap& bitmap, int itemid )
 #if defined(__WXMSW__)
             2*4;
 #elif defined(__WXGTK3__)
-            2*4;
+            2*2;
 #elif defined(__WXGTK__)
-            2*8;
+            2*6;
 #elif defined(__WXOSX__)
             2*3;
 #else
             0;
 #endif
     // Maximal heigth of the bitmap
-    const int hMax = sz.y - margins;
+    const int hMax = wxMax(4, sz.y - margins);
 
     wxBitmap scaledBmp;
     // Scale bitmap down if necessary
@@ -2167,8 +2210,13 @@ void wxPGMultiButton::Add( const wxBitmap& bitmap, int itemid )
         scaledBmp = bitmap;
     }
 
-    wxBitmapButton* button = new wxBitmapButton(this, itemid, scaledBmp,
+    wxBitmapButton* button = new wxPGEditorBitmapButton(this, itemid, scaledBmp,
                            wxPoint(sz.x, 0), wxSize(wxDefaultCoord, sz.y));
+    // If button is narrow make it a square
+    wxSize szBtn = button->GetSize();
+    if ( szBtn.x < szBtn.y )
+        button->SetSize(wxSize(szBtn.y, szBtn.y));
+
     DoAddButton( button, sz );
 }
 #endif
