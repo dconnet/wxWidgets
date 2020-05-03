@@ -49,6 +49,10 @@
 #include "wx/headerctrl.h"
 #include "wx/hashset.h"
 
+#if wxUSE_CLIPBOARD
+    #include "wx/clipbrd.h"
+#endif // wxUSE_CLIPBOARD
+
 #include "wx/generic/gridsel.h"
 #include "wx/generic/gridctrl.h"
 #include "wx/generic/grideditors.h"
@@ -5707,13 +5711,11 @@ void wxGrid::OnKeyDown( wxKeyEvent& event )
                 }
                 else
                 {
-                    if ( GetGridCursorRow() < GetNumberRows()-1 )
+                    if ( !MoveCursorDown( event.ShiftDown() ) )
                     {
-                        MoveCursorDown( event.ShiftDown() );
-                    }
-                    else
-                    {
-                        // at the bottom of a column
+                        // Normally this would be done by MoveCursorDown(), but
+                        // if it failed to move the cursor, e.g. because we're
+                        // at the bottom of a column, do it here.
                         DisableCellEditControl();
                     }
                 }
@@ -5875,6 +5877,81 @@ void wxGrid::OnKeyDown( wxKeyEvent& event )
                         m_selection->ExtendCurrentBlock(selStart, selEnd, event);
                 }
                 break;
+
+#if wxUSE_CLIPBOARD
+            case WXK_INSERT:
+            case 'C':
+                if ( event.GetModifiers() == wxMOD_CONTROL )
+                {
+                    // Coordinates of the selected block to copy to clipboard.
+                    wxGridBlockCoords sel;
+
+                    // Check if we have any selected blocks and if we don't
+                    // have too many of them.
+                    const wxGridBlocks blocks = GetSelectedBlocks();
+                    wxGridBlocks::iterator iter = blocks.begin();
+                    if ( iter == blocks.end() )
+                    {
+                        // No selection, copy just the current cell.
+                        if ( m_currentCellCoords == wxGridNoCellCoords )
+                        {
+                            // But we don't even have it -- nothing to do then.
+                            event.Skip();
+                            break;
+                        }
+
+                        sel = wxGridBlockCoords(GetGridCursorRow(),
+                                                GetGridCursorCol(),
+                                                GetGridCursorRow(),
+                                                GetGridCursorCol());
+                    }
+                    else // We do have at least one selected block.
+                    {
+                        sel = *blocks.begin();
+
+                        if ( ++iter != blocks.end() )
+                        {
+                            // As we use simple text format, we can't copy more
+                            // than one block to clipboard.
+                            wxLogWarning
+                            (
+                                _("Copying more than one selected block "
+                                  "to clipboard is not supported.")
+                            );
+                            break;
+                        }
+                    }
+
+                    wxClipboardLocker lockClipboard;
+                    if ( !lockClipboard )
+                    {
+                        // Error message should have been already given and we
+                        // don't have much to add.
+                        break;
+                    }
+
+                    wxString buf;
+                    for ( int row = sel.GetTopRow(); row <= sel.GetBottomRow(); row++ )
+                    {
+                        bool first = true;
+
+                        for ( int col = sel.GetLeftCol(); col <= sel.GetRightCol(); col++ )
+                        {
+                            if ( first )
+                                first = false;
+                            else
+                                buf += '\t';
+
+                            buf += GetCellValue(row, col);
+                        }
+
+                        buf += wxTextFile::GetEOL();
+                    }
+
+                    wxTheClipboard->SetData(new wxTextDataObject(buf));
+                }
+                break;
+#endif // wxUSE_CLIPBOARD
 
             default:
                 event.Skip();
