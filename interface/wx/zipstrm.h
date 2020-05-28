@@ -301,7 +301,6 @@ public:
     */
     int GetFlags() const;
 
-    //@{
     /**
         A static member that translates a filename into the internal format used
         within the archive. If the third parameter is provided, the bool pointed
@@ -310,9 +309,9 @@ public:
 
         @see @ref overview_archive_byname
     */
-    wxString GetInternalName(const wxString& name,
-                            wxPathFormat format = wxPATH_NATIVE,
-                            bool* pIsDir = NULL);
+    static wxString GetInternalName(const wxString& name,
+                                    wxPathFormat format = wxPATH_NATIVE,
+                                    bool* pIsDir = NULL);
     /**
         Returns the entry's filename in the internal format used within the archive.
         The name can include directory components, i.e. it can be a full path.
@@ -321,7 +320,6 @@ public:
         This gives a canonical name that can be used in comparisons.
     */
     wxString GetInternalName() const;
-    //@}
 
     /**
         Returns @true if GetSystemMadeBy() is a flavour of unix.
