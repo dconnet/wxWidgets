@@ -11,11 +11,6 @@
 if(DEFINED wxBUILD_CXX_STANDARD AND NOT wxBUILD_CXX_STANDARD STREQUAL COMPILER_DEFAULT)
     set(CMAKE_CXX_STANDARD ${wxBUILD_CXX_STANDARD})
 endif()
-if(NOT CMAKE_CXX_STANDARD EQUAL 98)
-    set(wxHAS_CXX11 TRUE)
-else()
-    set(wxHAS_CXX11 FALSE)
-endif()
 
 if(MSVC)
     # Determine MSVC runtime library flag
@@ -385,7 +380,12 @@ if(wxUSE_GUI)
 
     # extra dependencies
     if(wxUSE_OPENGL)
-        find_package(OpenGL)
+        if(WXOSX_IPHONE)
+            set(OPENGL_FOUND TRUE)
+            set(OPENGL_LIBRARIES "-framework OpenGLES" "-framework QuartzCore")
+        else()
+            find_package(OpenGL)
+        endif()
         if(NOT OPENGL_FOUND)
             message(WARNING "opengl not found, wxGLCanvas won't be available")
             wx_option_force_value(wxUSE_OPENGL OFF)
@@ -538,17 +538,23 @@ endif()
 set(wxBUILD_PRECOMP_PREV ${wxBUILD_PRECOMP} CACHE INTERNAL "")
 
 if(wxBUILD_PRECOMP)
+    if(DEFINED CMAKE_XCODE_ATTRIBUTE_CODE_SIGNING_ALLOWED)
+        set(try_flags "-DCMAKE_XCODE_ATTRIBUTE_CODE_SIGNING_ALLOWED=${CMAKE_XCODE_ATTRIBUTE_CODE_SIGNING_ALLOWED}")
+    endif()
     if (CLEAN_PRECOMP_TEST)
         try_compile(RESULT_VAR_CLEAN
                     "${wxBINARY_DIR}/CMakeFiles/cotire_test"
                     "${wxSOURCE_DIR}/build/cmake/modules/cotire_test"
                     CotireExample clean_cotire
+                    CMAKE_FLAGS ${try_flags}
         )
     endif()
     try_compile(RESULT_VAR
                 "${wxBINARY_DIR}/CMakeFiles/cotire_test"
                 "${wxSOURCE_DIR}/build/cmake/modules/cotire_test"
-                CotireExample OUTPUT_VARIABLE OUTPUT_VAR
+                CotireExample
+                CMAKE_FLAGS ${try_flags}
+                OUTPUT_VARIABLE OUTPUT_VAR
     )
 
     # check if output has precompiled header warnings. The build can still succeed, so check the output

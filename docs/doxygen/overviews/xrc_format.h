@@ -115,7 +115,7 @@ These come in two varieties:
     ("\<label\>Cancel\</label\>"), but they may use nested subelements too (e.g.
     @ref overview_xrcformat_type_font "font property"). A property can only be
     listed once in an object's definition.
- -# Child objects. Window childs, sizers, sizer items or notebook pages
+ -# Child objects. Window children, sizers, sizer items or notebook pages
     are all examples of child objects. They are represented using nested
     @c \<object\> elements and are can be repeated more than once. The specifics
     of which object classes are allowed as children are class-specific and
@@ -1819,7 +1819,7 @@ objects have the following properties:
 @endTable
 
 A wxRibbonPage may have children of any type derived from wxRibbonControl.
-Most commontly, wxRibbonPanel is used. As a special case, the @c panel
+Most commonly, wxRibbonPanel is used. As a special case, the @c panel
 pseudo-class may be used instead of @c wxRibbonPanel when used as wxRibbonPage
 children.
 
@@ -2663,15 +2663,15 @@ should be processed on. It is filtered out and ignored on any other platforms.
 Possible elemental values are:
 @beginDefList
 @itemdef{ @c win, Windows }
-@itemdef{ @c mac, OS X (or Mac Classic in wxWidgets version supporting it) }
-@itemdef{ @c unix, Any Unix platform @em except OS X }
+@itemdef{ @c mac, macOS (or Mac Classic in wxWidgets version supporting it) }
+@itemdef{ @c unix, Any Unix platform @em except macOS }
 @endDefList
 
 Examples:
 @code
 <label platform="win">Windows</label>
 <label platform="unix">Unix</label>
-<label platform="mac">OS X</label>
+<label platform="mac">macOS</label>
 <help platform="mac|unix">Not a Windows machine</help>
 @endcode
 
