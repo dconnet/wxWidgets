@@ -487,6 +487,8 @@ void wxGCDCImpl::ComputeScaleAndOrigin()
         m_matrixCurrent.Concat(mtxExt);
 #endif // wxUSE_DC_TRANSFORM_MATRIX
         m_graphicContext->ConcatTransform( m_matrixCurrent );
+        m_matrixCurrentInv = m_matrixCurrent;
+        m_matrixCurrentInv.Invert();
         m_isClipBoxValid = false;
     }
 }
@@ -593,6 +595,23 @@ void wxGCDCImpl::ResetTransformMatrix()
 }
 
 #endif // wxUSE_DC_TRANSFORM_MATRIX
+
+// coordinates conversions and transforms
+wxPoint wxGCDCImpl::DeviceToLogical(wxCoord x, wxCoord y) const
+{
+    wxDouble px = x;
+    wxDouble py = y;
+    m_matrixCurrentInv.TransformPoint(&px, &py);
+    return wxPoint(wxRound(px), wxRound(py));
+}
+
+wxPoint wxGCDCImpl::LogicalToDevice(wxCoord x, wxCoord y) const
+{
+    wxDouble px = x;
+    wxDouble py = y;
+    m_matrixCurrent.TransformPoint(&px, &py);
+    return wxPoint(wxRound(px), wxRound(py));
+}
 
 bool wxGCDCImpl::DoFloodFill(wxCoord WXUNUSED(x), wxCoord WXUNUSED(y),
                              const wxColour& WXUNUSED(col),
@@ -1253,13 +1272,13 @@ void wxGCDCImpl::DoGetTextExtent( const wxString &str, wxCoord *width, wxCoord *
                       );
 
     if ( height )
-        *height = (wxCoord)(h+0.5);
+        *height = (wxCoord)wxRound(h);
     if ( descent )
-        *descent = (wxCoord)(d+0.5);
+        *descent = (wxCoord)wxRound(d);
     if ( externalLeading )
-        *externalLeading = (wxCoord)(e+0.5);
+        *externalLeading = (wxCoord)wxRound(e);
     if ( width )
-        *width = (wxCoord)(w+0.5);
+        *width = (wxCoord)wxRound(w);
 
     if ( theFont )
     {
@@ -1279,7 +1298,7 @@ bool wxGCDCImpl::DoGetPartialTextExtents(const wxString& text, wxArrayInt& width
 
     m_graphicContext->GetPartialTextExtents( text, widthsD );
     for ( size_t i = 0; i < widths.GetCount(); ++i )
-        widths[i] = (wxCoord)(widthsD[i] + 0.5);
+        widths[i] = wxRound(widthsD[i]);
 
     return true;
 }
@@ -1329,9 +1348,9 @@ void wxGCDCImpl::DoGetSize(int *width, int *height) const
     wxDouble w,h;
     m_graphicContext->GetSize( &w, &h );
     if ( height )
-        *height = (int) (h+0.5);
+        *height = wxRound(h);
     if ( width )
-        *width = (int) (w+0.5);
+        *width = wxRound(w);
 }
 
 void wxGCDCImpl::DoGradientFillLinear(const wxRect& rect,
