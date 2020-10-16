@@ -54,10 +54,6 @@
     #pragma warning(pop)
 #endif
 
-#ifdef __BORLANDC__
-#pragma hdrstop
-#endif
-
 #include <float.h> // for FLT_MAX, FLT_MIN
 
 #ifndef WX_PRECOMP
@@ -3114,7 +3110,7 @@ wxD2DFontData::wxD2DFontData(wxGraphicsRenderer* renderer, const wxFont& font, c
 
     FLOAT fontSize = !dpi.y
         ? FLOAT(font.GetPixelSize().GetHeight())
-        : FLOAT(font.GetFractionalPointSize()) * dpi.y / 72.0f;
+        : FLOAT(font.GetFractionalPointSize() * dpi.y / 72);
 
     hr = wxDWriteFactory()->CreateTextFormat(
         name,
