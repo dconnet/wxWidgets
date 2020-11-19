@@ -1507,12 +1507,6 @@ void wxEnableTopLevelWindows(bool enable)
         node->GetData()->Enable(enable);
 }
 
-#if defined(__WXOSX__) && wxOSX_USE_COCOA
-
-// defined in evtloop.mm
-
-#else
-
 wxWindowDisabler::wxWindowDisabler(bool disable)
 {
     m_disabled = disable;
@@ -1530,8 +1524,6 @@ void wxWindowDisabler::DoDisable(wxWindow *winToSkip)
 {
     // remember the top level windows which were already disabled, so that we
     // don't reenable them later
-    m_winDisabled = NULL;
-
     wxWindowList::compatibility_iterator node;
     for ( node = wxTopLevelWindows.GetFirst(); node; node = node->GetNext() )
     {
@@ -1546,14 +1538,13 @@ void wxWindowDisabler::DoDisable(wxWindow *winToSkip)
         }
         else
         {
-            if ( !m_winDisabled )
-            {
-                m_winDisabled = new wxWindowList;
-            }
-
-            m_winDisabled->Append(winTop);
+            m_winDisabled.push_back(winTop);
         }
     }
+
+#if defined(__WXOSX__) && wxOSX_USE_COCOA
+    AfterDisable(winToSkip);
+#endif
 }
 
 wxWindowDisabler::~wxWindowDisabler()
@@ -1561,21 +1552,21 @@ wxWindowDisabler::~wxWindowDisabler()
     if ( !m_disabled )
         return;
 
+#if defined(__WXOSX__) && wxOSX_USE_COCOA
+    BeforeEnable();
+#endif
+
     wxWindowList::compatibility_iterator node;
     for ( node = wxTopLevelWindows.GetFirst(); node; node = node->GetNext() )
     {
         wxWindow *winTop = node->GetData();
-        if ( !m_winDisabled || !m_winDisabled->Find(winTop) )
+        if ( !wxVectorContains(m_winDisabled, winTop) )
         {
             winTop->Enable();
         }
         //else: had been already disabled, don't reenable
     }
-
-    delete m_winDisabled;
 }
-
-#endif
 
 // Yield to other apps/messages and disable user input to all windows except
 // the given one
