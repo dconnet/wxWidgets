@@ -150,8 +150,11 @@ WXDLLIMPEXP_BASE bool wxCheckOsVersion(int majorVsn, int minorVsn = 0, int micro
 // Get platform endianness
 WXDLLIMPEXP_BASE bool wxIsPlatformLittleEndian();
 
-// Get platform architecture
+// Get platform architecture bitness
 WXDLLIMPEXP_BASE bool wxIsPlatform64Bit();
+
+// Get machine CPU architecture
+WXDLLIMPEXP_BASE wxString wxGetCpuArchitectureName();
 
 #ifdef __LINUX__
 // Get linux-distro information
