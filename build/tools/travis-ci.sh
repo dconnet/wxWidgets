@@ -16,18 +16,9 @@ launch_httpbin() {
     echo 'travis_fold:start:httpbin'
     echo 'Running httpbin...'
 
-    # Prefer to use docker if it's available as it's more robust than dealing
-    # with pip -- but we need to have a fallback as at least Mac builds don't
-    # have docker.
-    if command -v docker; then
-        docker pull kennethreitz/httpbin
-        docker run -d -p 80:80 kennethreitz/httpbin
-        WX_TEST_WEBREQUEST_URL="http://localhost"
-    else
-        pip install httpbin
-        python -m httpbin.core &
-        WX_TEST_WEBREQUEST_URL="http://localhost:5000"
-    fi
+    pip install httpbin --user
+    python -m httpbin.core &
+    WX_TEST_WEBREQUEST_URL="http://localhost:5000"
 
     export WX_TEST_WEBREQUEST_URL
     echo 'travis_fold:end:httpbin'

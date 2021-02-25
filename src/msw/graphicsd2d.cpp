@@ -933,20 +933,6 @@ D2D1_COLOR_F wxD2DConvertColour(wxColour colour)
         colour.Alpha() / 255.0f);
 }
 
-D2D1_ANTIALIAS_MODE wxD2DConvertAntialiasMode(wxAntialiasMode antialiasMode)
-{
-    switch (antialiasMode)
-    {
-    case wxANTIALIAS_NONE:
-        return D2D1_ANTIALIAS_MODE_ALIASED;
-    case wxANTIALIAS_DEFAULT:
-        return D2D1_ANTIALIAS_MODE_PER_PRIMITIVE;
-    }
-
-    wxFAIL_MSG("unknown antialias mode");
-    return D2D1_ANTIALIAS_MODE_ALIASED;
-}
-
 #if wxD2D_DEVICE_CONTEXT_SUPPORTED
 bool wxD2DCompositionModeSupported(wxCompositionMode compositionMode)
 {
@@ -2615,26 +2601,16 @@ public:
 
     wxD2DBitmapResourceHolder* GetSubBitmap(wxDouble x, wxDouble y, wxDouble w, wxDouble h) const
     {
+        wxCOMPtr<IWICBitmapClipper> clipper;
+        HRESULT hr = wxWICImagingFactory()->CreateBitmapClipper(&clipper);
+        wxCHECK2_HRESULT_RET(hr, NULL);
+
         WICRect r = { (INT)x, (INT)y, (INT)w, (INT)h };
-
-        WICPixelFormatGUID fmt;
-        m_srcBitmap->GetPixelFormat(&fmt);
-        wxASSERT_MSG(fmt == GUID_WICPixelFormat32bppPBGRA || fmt == GUID_WICPixelFormat32bppBGR, "Unsupported pixel format");
-
-        UINT bufStride = 4 * r.Width;
-        UINT bufSize = 4 * r.Width * r.Height;
-        BYTE* pixBuffer = new BYTE[bufSize];
-        HRESULT hr = m_srcBitmap->CopyPixels(&r, bufStride, bufSize, pixBuffer);
-        if ( FAILED(hr) )
-        {
-            delete[] pixBuffer;
-            wxFAILED_HRESULT_MSG(hr);
-            return NULL;
-        }
+        hr = clipper->Initialize(m_srcBitmap, &r);
+        wxCHECK2_HRESULT_RET(hr, NULL);
 
         wxCOMPtr<IWICBitmap> subBmp;
-        hr = wxWICImagingFactory()->CreateBitmapFromMemory(r.Width, r.Height, fmt, bufStride, bufSize, pixBuffer, &subBmp);
-        delete[] pixBuffer;
+        hr = wxWICImagingFactory()->CreateBitmapFromSource(clipper, WICBitmapNoCache, &subBmp);
         wxCHECK2_HRESULT_RET(hr, NULL);
 
         return new wxD2DBitmapResourceHolder(subBmp);
@@ -4170,8 +4146,7 @@ void wxD2DContext::SetClipLayer(ID2D1Geometry* clipGeometry)
 
     LayerData ld;
     ld.type = CLIP_LAYER;
-    ld.params = D2D1::LayerParameters(D2D1::InfiniteRect(), clipGeometry,
-                                      wxD2DConvertAntialiasMode(m_antialias));
+    ld.params = D2D1::LayerParameters(D2D1::InfiniteRect(), clipGeometry, GetRenderTarget()->GetAntialiasMode());
     ld.layer = clipLayer;
     ld.geometry = clipGeometry;
     // We need to store CTM to be able to re-apply
@@ -4390,7 +4365,27 @@ bool wxD2DContext::SetAntialiasMode(wxAntialiasMode antialias)
         return true;
     }
 
-    GetRenderTarget()->SetAntialiasMode(wxD2DConvertAntialiasMode(antialias));
+    D2D1_ANTIALIAS_MODE antialiasMode;
+    D2D1_TEXT_ANTIALIAS_MODE textAntialiasMode;
+    switch ( antialias )
+    {
+    case wxANTIALIAS_DEFAULT:
+        antialiasMode = D2D1_ANTIALIAS_MODE_PER_PRIMITIVE;
+        textAntialiasMode = D2D1_TEXT_ANTIALIAS_MODE_DEFAULT;
+        break;
+
+    case wxANTIALIAS_NONE:
+        antialiasMode = D2D1_ANTIALIAS_MODE_ALIASED;
+        textAntialiasMode = D2D1_TEXT_ANTIALIAS_MODE_ALIASED;
+        break;
+
+    default:
+        wxFAIL_MSG("Unknown antialias mode");
+        return false;
+    }
+
+    GetRenderTarget()->SetAntialiasMode(antialiasMode);
+    GetRenderTarget()->SetTextAntialiasMode(textAntialiasMode);
 
     m_antialias = antialias;
     return true;
@@ -4736,6 +4731,8 @@ void wxD2DContext::EnsureInitialized()
     {
         m_cachedRenderTarget = m_renderTargetHolder->GetD2DResource();
         GetRenderTarget()->GetTransform(&m_initTransform);
+        GetRenderTarget()->SetAntialiasMode(D2D1_ANTIALIAS_MODE_PER_PRIMITIVE);
+        GetRenderTarget()->SetTextAntialiasMode(D2D1_TEXT_ANTIALIAS_MODE_DEFAULT);
         GetRenderTarget()->BeginDraw();
     }
     else
