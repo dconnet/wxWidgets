@@ -213,6 +213,34 @@ TEST_CASE_METHOD(RequestFixture,
 }
 
 TEST_CASE_METHOD(RequestFixture,
+                 "WebRequest::Get::Param", "[net][webrequest][get]")
+{
+    if ( !InitBaseURL() )
+        return;
+
+    Create("/get?pi=3.14159265358979323");
+    Run();
+
+    // We ought to really parse the returned JSON object, but to keep things as
+    // simple as possible for now we just treat it as a string.
+    const wxString& response = request.GetResponse().AsString();
+    INFO("Response: " << response);
+
+    const char* expectedKey = "\"pi\":";
+    size_t pos = response.find(expectedKey);
+    REQUIRE( pos != wxString::npos );
+
+    pos += strlen(expectedKey);
+
+    // There may, or not, be a space after it.
+    while ( wxIsspace(response[pos]) )
+        pos++;
+
+    const char* expectedValue = "\"3.14159265358979323\"";
+    REQUIRE( response.compare(pos, strlen(expectedValue), expectedValue) == 0 );
+}
+
+TEST_CASE_METHOD(RequestFixture,
                  "WebRequest::Get::File", "[net][webrequest][get]")
 {
     if ( !InitBaseURL() )
