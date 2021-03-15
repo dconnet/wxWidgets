@@ -256,13 +256,9 @@ public:
 
     virtual void SetBitmapMargins(wxCoord x, wxCoord y) wxOVERRIDE
     {
-        RECT& margin = m_data.margin;
-        ::SetRect(&margin, x, y, x, y);
+        ::SetRect(&m_data.margin, x, y, x, y);
 
-        if ( !::SendMessage(m_hwndBtn, BCM_SETTEXTMARGIN, 0, (LPARAM)&margin) )
-        {
-            wxLogDebug("SendMessage(BCM_SETTEXTMARGIN) failed");
-        }
+        UpdateImageInfo();
     }
 
     virtual wxDirection GetBitmapPosition() const wxOVERRIDE
@@ -344,6 +340,15 @@ private:
 };
 
 #endif // wxUSE_UXTHEME
+
+// Right- and bottom-aligned images stored in the image list
+// (BUTTON_IMAGELIST) for some reasons are not drawn with proper
+// margins so for such alignments we need to switch to owner-drawn
+// mode a do the job on our own.
+static inline bool NeedsOwnerDrawnForImageLayout(wxDirection dir, int margH, int margV)
+{
+    return (dir == wxRIGHT && margH != 0) || (dir == wxBOTTOM && margV != 0);
+}
 
 } // anonymous namespace
 
@@ -675,12 +680,12 @@ void wxAnyButton::DoSetBitmap(const wxBitmap& bitmap, State which)
                       "Must set normal bitmap with the new size first" );
 
 #if wxUSE_UXTHEME
-        if ( ShowsLabel() && wxUxThemeIsActive() )
+        // We can't change the size of the images stored in wxImageList
+        // in wxXPButtonImageData::m_iml so force recreating it below but
+        // keep the current data to copy its values into the new one.
+        oldData = dynamic_cast<wxXPButtonImageData*>(m_imageData);
+        if ( oldData )
         {
-            // We can't change the size of the images stored in wxImageList
-            // in wxXPButtonImageData::m_iml so force recreating it below but
-            // keep the current data to copy its values into the new one.
-            oldData = static_cast<wxXPButtonImageData *>(m_imageData);
             m_imageData = NULL;
         }
 #endif // wxUSE_UXTHEME
@@ -755,7 +760,10 @@ wxSize wxAnyButton::DoGetBitmapMargins() const
 void wxAnyButton::DoSetBitmapMargins(wxCoord x, wxCoord y)
 {
     wxCHECK_RET( m_imageData, "SetBitmap() must be called first" );
-
+    if ( NeedsOwnerDrawnForImageLayout(m_imageData->GetBitmapPosition(), x, y) )
+    {
+        MakeOwnerDrawn();
+    }
     m_imageData->SetBitmapMargins(x, y);
     InvalidateBestSize();
 }
@@ -763,7 +771,14 @@ void wxAnyButton::DoSetBitmapMargins(wxCoord x, wxCoord y)
 void wxAnyButton::DoSetBitmapPosition(wxDirection dir)
 {
     if ( m_imageData )
+    {
+        wxSize margs = m_imageData->GetBitmapMargins();
+        if ( NeedsOwnerDrawnForImageLayout(dir, margs.x, margs.y) )
+        {
+            MakeOwnerDrawn();
+        }
         m_imageData->SetBitmapPosition(dir);
+    }
     InvalidateBestSize();
 }
 
@@ -1166,6 +1181,24 @@ void wxAnyButton::MakeOwnerDrawn()
 {
     if ( !IsOwnerDrawn() )
     {
+        // We need to use owner-drawn specific data structure so we have
+        // to create it and copy the data from native data structure,
+        // if necessary.
+        if ( m_imageData && dynamic_cast<wxODButtonImageData*>(m_imageData) == NULL )
+        {
+            wxODButtonImageData* newData = new wxODButtonImageData(this, m_imageData->GetBitmap(State_Normal));
+            for ( int n = 0; n < State_Max; n++ )
+            {
+                State st = static_cast<State>(n);
+                newData->SetBitmap(m_imageData->GetBitmap(st), st);
+            }
+            newData->SetBitmapPosition(m_imageData->GetBitmapPosition());
+            wxSize margs = m_imageData->GetBitmapMargins();
+            newData->SetBitmapMargins(margs.x, margs.y);
+
+            delete m_imageData;
+            m_imageData = newData;
+        }
         // make it so
         wxMSWWinStyleUpdater(GetHwnd()).TurnOff(BS_TYPEMASK).TurnOn(BS_OWNERDRAW);
     }
