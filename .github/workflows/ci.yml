@@ -7,7 +7,6 @@ on:
       - master
     paths-ignore:
       - 'build/tools/appveyor*.bat'
-      - 'build/tools/before_install.sh'
       - 'build/tools/travis-ci.sh'
       - 'distrib/**'
       - 'docs/**'
@@ -24,7 +23,6 @@ on:
       - master
     paths-ignore:
       - 'build/tools/appveyor*.bat'
-      - 'build/tools/before_install.sh'
       - 'build/tools/travis-ci.sh'
       - 'distrib/**'
       - 'docs/**'
@@ -205,6 +203,7 @@ jobs:
             # See https://github.com/google/sanitizers/issues/1353
             if fgrep -q 'LeakSanitizer has encountered a fatal error' test.out; then
                 echo '+++ Rerunning the tests once again after LeakSanitizer crash +++'
+                unset rc
                 ./test || rc=$?
             fi
           fi
@@ -218,6 +217,7 @@ jobs:
 
       - name: Testing GUI using Xvfb
         if: matrix.skip_testing != true && matrix.skip_gui != true && matrix.use_xvfb
+        working-directory: tests
         run: |
           if [ ${{ matrix.use_asan }} ]; then
             # Leak suppression only works if we have debug symbols available,
@@ -230,9 +230,15 @@ jobs:
             fi
             export ASAN_OPTIONS="$ASAN_OPTIONS fast_unwind_on_malloc=0"
           fi
-          pushd tests
-          xvfb-run -a -s '-screen 0 1600x1200x24' ./test_gui
-          popd
+          ulimit -c unlimited
+          /bin/bash -o pipefail -c 'xvfb-run -a -s "-screen 0 1600x1200x24" ./test_gui 2>&1 | tee test_gui.out' || rc=$?
+          if [ -n "$rc" ]; then
+            if fgrep -q '(core dumped)' test_gui.out; then
+                echo '*** Test crashed, trying to get more information ***'
+                gdb --quiet --core=core -ex 'where' -ex 'thread apply all bt' -ex 'q' ./test_gui
+            fi
+            exit $rc
+          fi
 
       - name: Building samples
         if: matrix.skip_testing != true && matrix.skip_gui != true && matrix.skip_samples != true
