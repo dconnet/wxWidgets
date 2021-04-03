@@ -48,13 +48,14 @@ bool wxGenericImageList::Create( int width, int height, bool mask, int WXUNUSED(
 {
     m_size = wxSize(width, height);
     m_useMask = mask;
+    m_scaleFactor = 1.0;
 
     return true;
 }
 
 namespace
 {
-wxBitmap GetImageListBitmap(const wxBitmap& bitmap, bool useMask, const wxSize& imgSize)
+wxBitmap GetImageListBitmap(const wxBitmap& bitmap, bool useMask, const wxSize& imgSize, double scaleFactor)
 {
     wxBitmap bmp(bitmap);
     if ( useMask )
@@ -69,7 +70,7 @@ wxBitmap GetImageListBitmap(const wxBitmap& bitmap, bool useMask, const wxSize& 
 #if wxUSE_IMAGE
                 wxImage img = bmp.ConvertToImage();
                 img.ClearAlpha();
-                bmp = img;
+                bmp = wxBitmap(img, -1, scaleFactor);
 #endif // wxUSE_IMAGE
             }
         }
@@ -81,7 +82,7 @@ wxBitmap GetImageListBitmap(const wxBitmap& bitmap, bool useMask, const wxSize& 
 #if wxUSE_IMAGE
                 wxImage img = bmp.ConvertToImage();
                 img.ConvertAlphaToMask();
-                bmp = img;
+                bmp = wxBitmap(img, -1, scaleFactor);
 #endif // wxUSE_IMAGE
             }
             else
@@ -107,7 +108,7 @@ wxBitmap GetImageListBitmap(const wxBitmap& bitmap, bool useMask, const wxSize& 
 #if wxUSE_IMAGE
                 wxImage img = bmp.ConvertToImage();
                 img.InitAlpha();
-                bmp = img;
+                bmp = wxBitmap(img, -1, scaleFactor);
 #else
                 bmp.SetMask(NULL);
 #endif // wxUSE_IMAGE
@@ -117,7 +118,7 @@ wxBitmap GetImageListBitmap(const wxBitmap& bitmap, bool useMask, const wxSize& 
 
     // Ensure image size is the same as the size of the images on the image list.
     wxBitmap bmpResized;
-    const wxSize sz = bmp.GetSize();
+    const wxSize sz = bmp.GetScaledSize();
     if ( sz.x == imgSize.x && sz.y == imgSize.y )
     {
         bmpResized = bmp;
@@ -131,8 +132,9 @@ wxBitmap GetImageListBitmap(const wxBitmap& bitmap, bool useMask, const wxSize& 
     {
 #if wxUSE_IMAGE
         wxImage img = bmp.ConvertToImage();
-        wxImage imgResized = img.Size(imgSize, wxPoint(0, 0), 0, 0, 0);
-        bmpResized = imgResized;
+        // We need image with new physical size
+        wxImage imgResized = img.Size(scaleFactor * imgSize, wxPoint(0, 0), 0, 0, 0);
+        bmpResized = wxBitmap(imgResized, -1, scaleFactor);
 #else
         bmpResized = bmp;
 #endif // wxUSE_IMAGE
@@ -153,6 +155,13 @@ int wxGenericImageList::Add( const wxBitmap &bitmap )
         // This is the first time Add() is called and we hadn't had any fixed
         // size: adopt the size of our first bitmap as image size.
         m_size = bitmapSize;
+        // Save scale factor to check if all images have the same scaling
+        m_scaleFactor = bitmap.GetScaleFactor();
+    }
+    else if ( bitmap.GetScaleFactor() != m_scaleFactor )
+    {
+        // All images in the list should have the same scale factor
+        return -1;
     }
 
     // There is a special case: a bitmap may contain more than one image,
@@ -160,7 +169,7 @@ int wxGenericImageList::Add( const wxBitmap &bitmap )
     // ImageList_Add() does.
     if ( bitmapSize.x == m_size.x )
     {
-        m_images.push_back(GetImageListBitmap(bitmap, m_useMask, m_size));
+        m_images.push_back(GetImageListBitmap(bitmap, m_useMask, m_size, m_scaleFactor));
     }
     else if ( bitmapSize.x > m_size.x )
     {
@@ -168,7 +177,7 @@ int wxGenericImageList::Add( const wxBitmap &bitmap )
         for (int subIndex = 0; subIndex < numImages; subIndex++)
         {
             wxRect rect(m_size.x * subIndex, 0, m_size.x, m_size.y);
-            m_images.push_back(GetImageListBitmap(bitmap.GetSubBitmap(rect), m_useMask, m_size));
+            m_images.push_back(GetImageListBitmap(bitmap.GetSubBitmap(rect), m_useMask, m_size, m_scaleFactor));
         }
     }
     else
@@ -233,11 +242,17 @@ wxGenericImageList::Replace(int index,
     if ( !DoGetPtr(index) )
         return false;
 
+    if ( bitmap.GetScaleFactor() != m_scaleFactor )
+    {
+        // All images in the list should have the same scale factor
+        return false;
+    }
+
     wxBitmap bmp(bitmap);
     if ( mask.IsOk() )
         bmp.SetMask(new wxMask(mask));
 
-    m_images[index] = GetImageListBitmap(bmp, m_useMask, m_size);
+    m_images[index] = GetImageListBitmap(bmp, m_useMask, m_size, m_scaleFactor);
 
     return true;
 }
