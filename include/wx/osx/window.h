@@ -299,6 +299,11 @@ public:
     // Return the DPI corresponding to the given scale factor.
     static wxSize       OSXMakeDPIFromScaleFactor(double scaleFactor);
 
+#if wxUSE_MENUS
+    // Called on the invoking window after handling the menu event.
+    virtual void        OSXAfterMenuEvent() { }
+#endif // wxUSE_MENUS
+
 protected:
     // For controls like radio buttons which are genuinely composite
     wxList              m_subControls;
@@ -342,7 +347,6 @@ protected:
     bool                MacHasScrollBarCorner() const;
     void                MacCreateScrollBars( long style ) ;
     void                MacRepositionScrollBars() ;
-    void                MacUpdateControlFont() ;
 
     // implement the base class pure virtuals
     virtual void DoGetTextExtent(const wxString& string,

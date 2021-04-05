@@ -73,7 +73,8 @@ wxImageList::wxImageList()
 // Creates an image list
 bool wxImageList::Create(int width, int height, bool mask, int initial)
 {
-    m_size = wxSize(width, height);
+    // Prevent from storing negative dimensions
+    m_size = wxSize(wxMax(width, 0), wxMax(height, 0));
     UINT flags = 0;
 
     // as we want to be able to use 32bpp bitmaps in the image lists, we always
@@ -322,7 +323,7 @@ bool wxImageList::Replace(int i, const wxIcon& icon)
 // Removes the image at the given index.
 bool wxImageList::Remove(int index)
 {
-    bool ok = ImageList_Remove(GetHImageList(), index) != 0;
+    bool ok = index >= 0 && ImageList_Remove(GetHImageList(), index) != FALSE;
     if ( !ok )
     {
         wxLogLastError(wxT("ImageList_Remove()"));
@@ -335,7 +336,13 @@ bool wxImageList::Remove(int index)
 bool wxImageList::RemoveAll()
 {
     // don't use ImageList_RemoveAll() because mingw32 headers don't have it
-    return Remove(-1);
+    bool ok = ImageList_Remove(GetHImageList(), -1) != FALSE;
+    if ( !ok )
+    {
+        wxLogLastError(wxT("ImageList_Remove()"));
+    }
+
+    return ok;
 }
 
 // Draws the given image on a dc at the specified position.
@@ -404,7 +411,9 @@ wxBitmap wxImageList::GetBitmap(int index) const
     if ( ii.hbmMask )
     {
         // draw it the first time to find a suitable mask colour
-        const_cast<wxImageList*>(this)->Draw(index, dc, 0, 0, wxIMAGELIST_DRAW_TRANSPARENT);
+        if ( !const_cast<wxImageList*>(this)->Draw(index, dc, 0, 0, wxIMAGELIST_DRAW_TRANSPARENT) )
+            return wxNullBitmap;
+
         dc.SelectObject(wxNullBitmap);
 
         // find the suitable mask colour
@@ -430,7 +439,9 @@ wxBitmap wxImageList::GetBitmap(int index) const
     else // no mask
     {
         // Just draw it normally.
-        const_cast<wxImageList*>(this)->Draw(index, dc, 0, 0, wxIMAGELIST_DRAW_NORMAL);
+        if ( !const_cast<wxImageList*>(this)->Draw(index, dc, 0, 0, wxIMAGELIST_DRAW_NORMAL) )
+            return wxNullBitmap;
+
         dc.SelectObject(wxNullBitmap);
 
         // And adjust its alpha flag as the destination bitmap would get it if

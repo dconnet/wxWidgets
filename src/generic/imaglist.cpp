@@ -41,16 +41,20 @@ wxGenericImageList::~wxGenericImageList()
 
 int wxGenericImageList::GetImageCount() const
 {
+    wxASSERT_MSG( m_size != wxSize(0, 0), "Invalid image list" );
+
     return static_cast<int>(m_images.size());
 }
 
 bool wxGenericImageList::Create( int width, int height, bool mask, int WXUNUSED(initialCount) )
 {
-    m_size = wxSize(width, height);
+    // Prevent from storing negative dimensions
+    m_size = wxSize(wxMax(width, 0), wxMax(height, 0));
     m_useMask = mask;
     m_scaleFactor = 1.0;
 
-    return true;
+    // Images must have proper size
+    return m_size != wxSize(0, 0);
 }
 
 namespace
@@ -146,16 +150,14 @@ wxBitmap GetImageListBitmap(const wxBitmap& bitmap, bool useMask, const wxSize& 
 
 int wxGenericImageList::Add( const wxBitmap &bitmap )
 {
-    // We use the scaled, i.e. logical, size here as image list images size is
-    // specified in logical pixels, just as window coordinates and sizes are.
-    const wxSize bitmapSize = bitmap.GetScaledSize();
-
+    // Cannot add image to invalid list
     if ( m_size == wxSize(0, 0) )
+        return -1;
+
+    if ( m_images.empty() )
     {
-        // This is the first time Add() is called and we hadn't had any fixed
-        // size: adopt the size of our first bitmap as image size.
-        m_size = bitmapSize;
-        // Save scale factor to check if all images have the same scaling
+        // This is the first time Add() is called so we should save
+        // scale factor to check if further images will have the same scaling
         m_scaleFactor = bitmap.GetScaleFactor();
     }
     else if ( bitmap.GetScaleFactor() != m_scaleFactor )
@@ -163,6 +165,10 @@ int wxGenericImageList::Add( const wxBitmap &bitmap )
         // All images in the list should have the same scale factor
         return -1;
     }
+
+    // We use the scaled, i.e. logical, size here as image list images size is
+    // specified in logical pixels, just as window coordinates and sizes are.
+    const wxSize bitmapSize = bitmap.GetScaledSize();
 
     // There is a special case: a bitmap may contain more than one image,
     // in which case we're supposed to chop it in parts, just as Windows
@@ -259,6 +265,9 @@ wxGenericImageList::Replace(int index,
 
 bool wxGenericImageList::Remove( int index )
 {
+    if ( index < 0 || (size_t)index >= m_images.size() )
+        return false;
+
     m_images.erase(m_images.begin() + index);
 
     return true;
@@ -271,18 +280,12 @@ bool wxGenericImageList::RemoveAll()
     return true;
 }
 
-bool wxGenericImageList::GetSize( int index, int &width, int &height ) const
+bool wxGenericImageList::GetSize( int WXUNUSED(index), int &width, int &height ) const
 {
-    const wxBitmap* bmp = DoGetPtr(index);
-    if ( !bmp )
-    {
-        width = 0;
-        height = 0;
-        return false;
-    }
+    width = m_size.x;
+    height = m_size.y;
 
-    width = bmp->GetScaledWidth();
-    height = bmp->GetScaledHeight();
+    wxCHECK_MSG( m_size != wxSize(0, 0), false, "Invalid image list" );
 
     return true;
 }
