@@ -4217,7 +4217,7 @@ bool wxWindowMSW::HandleQueryEndSession(long logOff, bool *mayEnd)
     event.SetCanVeto(true);
     event.SetLoggingOff(logOff == (long)ENDSESSION_LOGOFF);
 
-    bool rc = wxTheApp->ProcessEvent(event);
+    bool rc = wxTheApp->SafelyProcessEvent(event);
 
     if ( rc )
     {
@@ -4244,7 +4244,7 @@ bool wxWindowMSW::HandleEndSession(bool endSession, long logOff)
     event.SetCanVeto(false);
     event.SetLoggingOff((logOff & ENDSESSION_LOGOFF) != 0);
 
-    return wxTheApp->ProcessEvent(event);
+    return wxTheApp->SafelyProcessEvent(event);
 }
 
 // ---------------------------------------------------------------------------
@@ -7184,7 +7184,9 @@ wxKeyboardHook(int nCode, WXWPARAM wParam, WXLPARAM lParam)
                 wxEvtHandler * const handler = win ? win->GetEventHandler()
                                                    : wxTheApp;
 
-                if ( handler && handler->ProcessEvent(event) )
+                // Do not let exceptions propagate out of the hook, it's a
+                // module boundary.
+                if ( handler && handler->SafelyProcessEvent(event) )
                 {
                     if ( !event.IsNextEventAllowed() )
                     {
