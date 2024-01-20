@@ -44,7 +44,7 @@
 // in the version after it completely.
 //
 // Recommended setting: 0 (please update your code)
-#define WXWIN_COMPATIBILITY_3_2 1
+#define WXWIN_COMPATIBILITY_3_2 0
 
 // MSW-only: Set to 0 for accurate dialog units, else 1 for old behaviour when
 // default system font is used for wxWindow::GetCharWidth/Height() instead of
@@ -123,11 +123,11 @@
 // NDEBUG) or, on the contrary, enable more asserts, including the usually
 // disabled ones, in the debug build (then do it inside #ifndef NDEBUG)
 //
-// #ifdef NDEBUG
-//  #define wxDEBUG_LEVEL 0
-// #else
-//  #define wxDEBUG_LEVEL 2
-// #endif
+#ifdef NDEBUG
+ #define wxDEBUG_LEVEL 0
+#else
+ #define wxDEBUG_LEVEL 2
+#endif
 
 // wxHandleFatalExceptions() may be used to catch the program faults at run
 // time and, instead of terminating the program with a usual GPF message box,
@@ -299,7 +299,7 @@
 // Recommended setting: 1 to remain compatible with the official builds of
 // wxWidgets, but define wxNO_UNSAFE_WXSTRING_CONV when compiling the
 // application code to effectively disallow using these conversions.
-#define wxUSE_UNSAFE_WXSTRING_CONV 1
+#define wxUSE_UNSAFE_WXSTRING_CONV 0
 
 // Define implicit conversions of wxString to std::wstring and std::string if
 // wxUSE_UNSAFE_WXSTRING_CONV is also enabled.
@@ -1132,7 +1132,7 @@
 //
 // Recommended setting: 1 (but can be safely disabled if you don't use it and
 // want to avoid extra dependencies under Linux, for example).
-#define wxUSE_PRIVATE_FONTS 1
+#define wxUSE_PRIVATE_FONTS 0
 
 // wxRichToolTip is a customizable tooltip class which has more functionality
 // than the stock (but native, unlike this class) wxToolTip.
