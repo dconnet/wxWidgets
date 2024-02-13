@@ -1176,7 +1176,14 @@ void wxWindowQt::DoSetToolTip( wxToolTip *tip )
 bool wxWindowQt::DoPopupMenu(wxMenu *menu, int x, int y)
 {
     menu->UpdateUI();
-    menu->GetHandle()->exec( GetHandle()->mapToGlobal( QPoint( x, y ) ) );
+
+    QPoint pt;
+    if (x == wxDefaultCoord && y == wxDefaultCoord)
+        pt = QCursor::pos();
+    else
+        pt = GetHandle()->mapToGlobal(QPoint(x, y));
+
+    menu->GetHandle()->exec(pt);
 
     return true;
 }
@@ -1287,8 +1294,11 @@ bool wxWindowQt::SetBackgroundColour(const wxColour& colour)
     if ( !wxWindowBase::SetBackgroundColour(colour) )
         return false;
 
-    QWidget *widget = QtGetParentWidget();
-    wxQtChangeRoleColour(widget->backgroundRole(), widget, colour);
+    if ( colour.IsOk() )
+    {
+        QWidget *widget = QtGetParentWidget();
+        wxQtChangeRoleColour(widget->backgroundRole(), widget, colour);
+    }
 
     return true;
 }
@@ -1828,6 +1838,11 @@ void wxWindowQt::QtSetPicture( QPicture* pict )
 QPainter *wxWindowQt::QtGetPainter()
 {
     return m_qtPainter.get();
+}
+
+bool wxWindowQt::QtCanPaintWithoutActivePainter() const
+{
+    return false;
 }
 
 bool wxWindowQt::EnableTouchEvents(int eventsMask)
