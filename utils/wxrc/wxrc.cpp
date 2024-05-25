@@ -27,6 +27,8 @@
 #include "wx/mimetype.h"
 #include "wx/vector.h"
 
+#include <memory>
+
 class XRCWidgetData
 {
 public:
@@ -354,13 +356,14 @@ wxString XmlResApp::GetInternalFileName(const wxString& name, const wxArrayStrin
     name2.Replace(wxT("*"), wxT("_"));
     name2.Replace(wxT("?"), wxT("_"));
 
-    wxString s = wxFileNameFromPath(parOutput) + wxT("$") + name2;
+    const wxString parOutput_fileName{wxFileNameFromPath(parOutput)};
+    wxString s{wxString::Format(wxT("%s$%s"), parOutput_fileName, name2)};
 
     if (wxFileExists(s) && flist.Index(s) == wxNOT_FOUND)
     {
         for (int i = 0;; i++)
         {
-            s.Printf(wxFileNameFromPath(parOutput) + wxT("$%03i-") + name2, i);
+            s.Printf(wxT("%s$%03i-%s"), parOutput_fileName, i, name2);
             if (!wxFileExists(s) || flist.Index(s) != wxNOT_FOUND)
                 break;
         }
@@ -580,7 +583,7 @@ void XmlResApp::MakePackageZIP(const wxArrayString& flist)
 }
 
 
-
+// This function returns empty string on any file IO error.
 static wxString FileToCppArray(wxString filename, int num)
 {
     wxString output;
@@ -588,11 +591,29 @@ static wxString FileToCppArray(wxString filename, int num)
     wxString snum;
     wxFFile file(filename, wxT("rb"));
     wxFileOffset offset = file.Length();
-    wxASSERT_MSG( offset >= 0 , wxT("Invalid file length") );
+    if ( offset < 0 )
+    {
+        wxLogError(R"(Error getting size of the file "%s")", filename);
+        return {};
+    }
 
+    // 32-bit Unix systems and 32-bit and 64-bit Windows systems do not support
+    // loader modules larger than 4 GiB. For 64-bit Windows systems, even if
+    // the virtual address space of a process exceeds the 32-bit range, each
+    // individual loader module cannot by itself exceed the 32-bit range
+    // (https://duckduckgo.com/?q=pecoff_v8). So even if our resource compiler
+    // supported 64-bit-sized files, it might not be able to process the
+    // resulting C++ code on some platforms/toolchains. Therefore, we limit the
+    // size of an individual resource file to 32-bit range:
+    if (offset != static_cast<wxUint32>(offset))
+    {
+        wxLogError(R"(Resource file "%s" is too big (%llu bytes) and can't be processed)",
+                   offset);
+        return {};
+    }
+
+    // This cast must succeed now, after the check above.
     const size_t lng = wx_truncate_cast(size_t, offset);
-    wxASSERT_MSG( static_cast<wxFileOffset>(lng) == offset,
-                  wxT("Huge file not supported") );
 
     snum.Printf(wxT("%i"), num);
     output.Printf(wxT("static size_t xml_res_size_") + snum + wxT(" = %lu;\n"),
@@ -601,8 +622,8 @@ static wxString FileToCppArray(wxString filename, int num)
     // we cannot use string literals because MSVC is dumb wannabe compiler
     // with arbitrary limitation to 2048 strings :(
 
-    unsigned char *buffer = new unsigned char[lng];
-    file.Read(buffer, lng);
+    std::vector<unsigned char> buffer(lng);
+    file.Read(&buffer[0], lng);
 
     for (size_t i = 0, linelng = 0; i < lng; i++)
     {
@@ -616,8 +637,6 @@ static wxString FileToCppArray(wxString filename, int num)
         output << tmp;
         linelng += tmp.length()+1;
     }
-
-    delete[] buffer;
 
     output += wxT("};\n\n");
 
@@ -655,8 +674,16 @@ void XmlResApp::MakePackageCPP(const wxArrayString& flist)
 "\n");
 
     for (i = 0; i < flist.GetCount(); i++)
-        file.Write(
-              FileToCppArray(parOutputPath + wxFILE_SEP_PATH + flist[i], i));
+    {
+        const wxString result =
+            FileToCppArray(parOutputPath + wxFILE_SEP_PATH + flist[i], i);
+        if (result.empty())
+        {
+            retCode = 2;
+            return;
+        }
+        file.Write(result);
+    }
 
     file.Write(""
 "void " + parFuncname + "()\n"
@@ -684,12 +711,10 @@ void XmlResApp::MakePackageCPP(const wxArrayString& flist)
 #if wxUSE_MIMETYPE
         else
         {
-            wxFileType *ft = wxTheMimeTypesManager->GetFileTypeFromExtension(ext);
+            std::unique_ptr<wxFileType>
+                ft{wxTheMimeTypesManager->GetFileTypeFromExtension(ext)};
             if ( ft )
-            {
                 ft->GetMimeType(&mime);
-                delete ft;
-            }
         }
 #endif // wxUSE_MIMETYPE
 
@@ -749,8 +774,8 @@ static wxString FileToPythonArray(wxString filename, int num)
     snum.Printf(wxT("%i"), num);
     output = "    xml_res_file_" + snum + " = '''\\\n";
 
-    unsigned char *buffer = new unsigned char[lng];
-    file.Read(buffer, lng);
+    std::vector<unsigned char> buffer(lng);
+    file.Read(&buffer[0], lng);
 
     for (size_t i = 0, linelng = 0; i < lng; i++)
     {
@@ -774,8 +799,6 @@ static wxString FileToPythonArray(wxString filename, int num)
         output << tmp;
         linelng += tmp.length();
     }
-
-    delete[] buffer;
 
     output += wxT("'''\n\n");
 
