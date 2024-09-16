@@ -625,9 +625,17 @@ public:
     /**
         Retrieve the version information about this backend implementation.
 
-        @since 3.1.5
+        @param context
+            The context in which the version information is requested, by
+            default it is the run-time version. Currently only GTK WebKit and
+            CEF backends support returning compile-time version information,
+            all the other backends return an empty wxVersionInfo object in this
+            case.
+
+        @since 3.1.5 (@a context parameter was added in 3.3.0)
     */
-    virtual wxVersionInfo GetVersionInfo();
+    virtual wxVersionInfo
+    GetVersionInfo(wxVersionContext context = wxVersionContext::RunTime);
 
     /**
         Create a wxWebViewConfiguration object for wxWebView instances
@@ -1088,9 +1096,23 @@ public:
     /**
         Retrieve the version information about the backend implementation.
 
-        @since 3.1.5
+        @param backend
+            The name of the backend to retrieve the version information for,
+            can be left unspecified to use the default backend.
+        @param context
+            The context in which the version information is requested, by
+            default it is the run-time version. Currently only GTK WebKit and
+            CEF backends support returning compile-time version information,
+            all the other backends return an empty wxVersionInfo object in this
+            case.
+
+        @since 3.1.5 (@a context parameter was added in 3.3.0)
     */
-    static wxVersionInfo GetBackendVersionInfo(const wxString& backend = wxWebViewBackendDefault);
+    static wxVersionInfo
+    GetBackendVersionInfo(
+        const wxString& backend = wxWebViewBackendDefault,
+        wxVersionContext context = wxVersionContext::RunTime
+    );
 
     /**
         Create a new wxWebViewConfiguration object.
@@ -1538,6 +1560,8 @@ public:
         @note This is not implemented for the IE backend.
 
         @since 3.1.4
+
+        @see ShowDevTools()
     */
     virtual void EnableAccessToDevTools(bool enable = true);
 
@@ -1547,6 +1571,33 @@ public:
         @since 3.1.4
     */
     virtual bool IsAccessToDevToolsEnabled() const;
+
+    /**
+        Show the dev tools window.
+
+        Immediately open the dev tools window. Does nothing if this window was
+        already open.
+
+        Unlike EnableAccessToDevTools(), which allows the user to open the dev
+        tools window from the context menu, this function opens the same window
+        programmatically.
+
+        Please note that while ShowDevTools() can be used whether access to the
+        dev tools from the context menu was enabled or not, in WebKit2GTK+
+        backend calling it also enables interactive access to the dev tools
+        from the context menu as a side effect.
+
+        @return @true if the dev tools window is shown (even if it had been
+            already shown before this function was called), @false if it could
+            not be shown for some reason, most likely because the backend does
+            not provide this functionality.
+
+        @note This function is not implemented in the IE and WebKit (GTK/macOS)
+            backends (but is implemented for WebKit2 GTK backend).
+
+        @since 3.3.0
+     */
+    virtual bool ShowDevTools();
 
     /**
         Enable or disable if browser accelerator keys are enabled.
