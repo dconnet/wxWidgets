@@ -485,13 +485,17 @@ public:
     wxRect CalculateHintRect(
                  wxWindow* paneWindow,
                  const wxPoint& pt,
-                 const wxPoint& offset);
+                 const wxPoint& offset = wxPoint{});
 
     void DrawHintRect(
                  wxWindow* paneWindow,
                  const wxPoint& pt,
-                 const wxPoint& offset);
+                 const wxPoint& offset = wxPoint{});
 
+    void UpdateHint(const wxRect& rect);
+
+    // These functions are public for compatibility reasons, but should never
+    // be called directly, use UpdateHint() above instead.
     virtual void ShowHint(const wxRect& rect);
     virtual void HideHint();
 
@@ -629,6 +633,10 @@ private:
     // Return the index in m_uiParts corresponding to the current value of
     // m_actionPart. If m_actionPart is null, returns wxNOT_FOUND.
     int GetActionPartIndex() const;
+
+    // This flag is set to true if Update() is called while the window is
+    // minimized, in which case we postpone updating it until it is restored.
+    bool m_updateOnRestore = false;
 
 #ifndef SWIG
     wxDECLARE_EVENT_TABLE();
