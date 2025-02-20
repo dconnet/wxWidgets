@@ -79,6 +79,7 @@ class MyFrame : public wxFrame
         ID_CreatePerspective,
         ID_CopyLayout,
         ID_PasteLayout,
+        ID_EditNotebookLayout,
         ID_AllowFloating,
         ID_AllowActivePane,
         ID_TransparentHint,
@@ -161,6 +162,7 @@ private:
     void OnCreatePerspective(wxCommandEvent& evt);
     void OnCopyLayout(wxCommandEvent& evt);
     void OnPasteLayout(wxCommandEvent& evt);
+    void OnEditNotebookLayout(wxCommandEvent& evt);
     void OnRestorePerspective(wxCommandEvent& evt);
     void OnSettings(wxCommandEvent& evt);
     void OnCustomizeToolbar(wxCommandEvent& evt);
@@ -619,6 +621,7 @@ wxBEGIN_EVENT_TABLE(MyFrame, wxFrame)
     EVT_MENU(MyFrame::ID_CreatePerspective, MyFrame::OnCreatePerspective)
     EVT_MENU(MyFrame::ID_CopyLayout, MyFrame::OnCopyLayout)
     EVT_MENU(MyFrame::ID_PasteLayout, MyFrame::OnPasteLayout)
+    EVT_MENU(MyFrame::ID_EditNotebookLayout, MyFrame::OnEditNotebookLayout)
     EVT_MENU(ID_AllowFloating, MyFrame::OnManagerFlag)
     EVT_MENU(ID_TransparentHint, MyFrame::OnManagerFlag)
     EVT_MENU(ID_VenetianBlindsHint, MyFrame::OnManagerFlag)
@@ -788,6 +791,8 @@ MyFrame::MyFrame(wxWindow* parent,
     m_perspectives_menu->Append(ID_CreatePerspective, _("Create Perspective"));
     m_perspectives_menu->Append(ID_CopyLayout, _("Copy Layout to Clipboard as XML\tCtrl-C"));
     m_perspectives_menu->Append(ID_PasteLayout, _("Paste XML Layout from Clipboard\tCtrl-V"));
+    m_perspectives_menu->AppendSeparator();
+    m_perspectives_menu->Append(ID_EditNotebookLayout, _("Edit &Notebook Layout..."));
     m_perspectives_menu->AppendSeparator();
     m_perspectives_menu->Append(ID_FirstPerspective+0, _("Default Startup"));
     m_perspectives_menu->Append(ID_FirstPerspective+1, _("All Panes"));
@@ -1621,7 +1626,9 @@ private:
 
     void AddChild(wxXmlNode* parent, const wxString& name, int value)
     {
-        AddChild(parent, name, wxString::Format("%u", value));
+        // Don't save 0 values, they're the default.
+        if ( value )
+            AddChild(parent, name, wxString::Format("%u", value));
     }
 
     void AddChild(wxXmlNode* parent, const wxString& name, const wxRect& rect)
@@ -1644,10 +1651,7 @@ private:
         AddChild(node, "row", layout.dock_row);
         AddChild(node, "position", layout.dock_pos);
         AddChild(node, "proportion", layout.dock_proportion);
-
-        // Saving dock size of 0 is harmless but unnecessary, so don't do it.
-        if ( layout.dock_size )
-            AddChild(node, "size", layout.dock_size);
+        AddChild(node, "size", layout.dock_size);
     }
 
 
@@ -1713,9 +1717,6 @@ public:
                 throw std::runtime_error("Unexpected node name");
             }
         }
-
-        if ( !m_panes )
-            throw std::runtime_error("Missing panes node");
     }
 
     // Implement wxAuiDeserializer methods.
@@ -1947,6 +1948,51 @@ void MyFrame::OnPasteLayout(wxCommandEvent& WXUNUSED(evt))
 #endif
 }
 
+void MyFrame::OnEditNotebookLayout(wxCommandEvent& WXUNUSED(event))
+{
+    auto* const book =
+        wxCheckCast<wxAuiNotebook>(m_mgr.GetPane("notebook_content").window);
+
+    MyXmlSerializer ser;
+
+    // This is a hack, but it allows us to reuse the full serializer without
+    // duplicating its code.
+    ser.BeforeSave();
+    ser.BeforeSaveNotebooks();
+
+    // The name here doesn't need to be the same as the notebook name, even
+    // though it usually would be.
+    book->SaveLayout("notebook", ser);
+
+    // Second part of the hack above.
+    ser.AfterSaveNotebooks();
+    ser.AfterSave();
+
+    // In a real application, we would save this XML string somewhere and
+    // restore it during the next run, but here we just show it and allow
+    // editing it interactively to test how changing it affect the layout.
+    wxTextEntryDialog dlg(
+        this,
+        "Current notebook layout (edit and press OK to apply):",
+        "wxAUI Sample",
+        ser.GetXML(),
+        wxOK | wxCANCEL | wxTE_MULTILINE
+    );
+
+    if ( dlg.ShowModal() != wxID_OK )
+        return;
+
+    try
+    {
+        MyXmlDeserializer deser(m_mgr, dlg.GetValue());
+        book->LoadLayout("notebook", deser);
+    }
+    catch ( const std::exception& e )
+    {
+        wxLogError("Failed to load notebook layout: %s", e.what());
+    }
+}
+
 void MyFrame::OnRestorePerspective(wxCommandEvent& evt)
 {
     m_mgr.LoadPerspective(m_perspectives.Item(evt.GetId() - ID_FirstPerspective));
@@ -1997,8 +2043,7 @@ void MyFrame::OnNotebookPageChanging(wxAuiNotebookEvent& evt)
 
 void MyFrame::OnNotebookTabRightClick(wxAuiNotebookEvent& evt)
 {
-    wxPoint pt;
-    wxGetMousePosition(&pt.x, &pt.y);
+    wxPoint pt = wxGetMousePosition();
 
     auto* const book =
         wxCheckCast<wxAuiNotebook>(m_mgr.GetPane("notebook_content").window);
