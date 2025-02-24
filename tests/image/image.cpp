@@ -31,6 +31,7 @@
 #include "wx/wfstream.h"
 #include "wx/clipbrd.h"
 #include "wx/dataobj.h"
+#include "wx/utils.h"
 
 // Check if we can use wxDIB::ConvertToBitmap(), which only exists for MSW and
 // which assumes the target is little-endian (matching the file format)
@@ -1408,6 +1409,9 @@ TEST_CASE_METHOD(ImageHandlersInit, "wxImage::BMPLoadMethod", "[image][bmp]")
     CompareBMPImageLoad("image/horse_grey.bmp");
     CompareBMPImageLoad("image/horse_rle8.bmp");
     CompareBMPImageLoad("image/horse_rle4.bmp");
+    if (!wxIsRunningUnderWine())
+        CompareBMPImageLoad("image/rgb16-3103.bmp");
+    CompareBMPImageLoad("image/rgb32-7187.bmp");
     CompareBMPImageLoad("image/rle8-delta-320x240.bmp",
         wxIMAGE_HAVE_DELTA_RLE_BITMAP);
     CompareBMPImageLoad("image/rle4-delta-320x240.bmp",
@@ -1444,27 +1448,31 @@ FindMaxChannelDiff(const wxImage& i1, const wxImage& i2)
 // even under the same architecture, see the example in
 // http://thread.gmane.org/gmane.comp.lib.wxwidgets.devel/151149/focus=151154
 
-// The 0 below can be replaced with 1 to generate, instead of comparing with,
-// the test files.
-#define ASSERT_IMAGE_EQUAL_TO_FILE(image, file) \
-    if ( 0 ) \
-    { \
-        INFO("Failed to save \"" << file << "\""); \
-        CHECK( image.SaveFile(file) ); \
-    } \
-    else \
-    { \
-        const wxImage imageFromFile(file); \
-        if ( imageFromFile.IsOk() ) \
-        { \
-            INFO("Wrong scaled \"" << file << "\" " << Catch::StringMaker<wxImage>::convert(image)); \
-            CHECK(FindMaxChannelDiff(imageFromFile, image) <= 1); \
-        } \
-        else \
-        { \
-            FAIL("Failed to load \"" << file << "\""); \
-        } \
+static void
+ASSERT_IMAGE_EQUAL_TO_FILE(const wxImage& image, const wxString& file)
+{
+    // This environment variable can be set to 1 to save the images instead of
+    // checking that the results match the existing files.
+    wxString value;
+    if ( wxGetEnv("WX_TEST_SAVE_SCALED_IMAGES", &value) && value == "1" )
+    {
+        INFO("Failed to save \"" << file << "\"");
+        CHECK( image.SaveFile(file) );
     }
+    else
+    {
+        const wxImage imageFromFile(file);
+        if ( imageFromFile.IsOk() )
+        {
+            INFO("Wrong \"" << file << "\" " << Catch::StringMaker<wxImage>::convert(image));
+            CHECK(FindMaxChannelDiff(imageFromFile, image) <= 1);
+        }
+        else
+        {
+            FAIL("Failed to load \"" << file << "\"");
+        }
+    }
+}
 
 TEST_CASE_METHOD(ImageHandlersInit, "wxImage::ScaleCompare", "[image]")
 {
@@ -1641,11 +1649,13 @@ TEST_CASE_METHOD(ImageHandlersInit, "wxImage::BMP", "[image][bmp]")
         // alpha is ignored for ICO if it is fully transparent
         REQUIRE(image.LoadFile("image/32bpp_rgb_a0.ico", wxBITMAP_TYPE_ICO));
         REQUIRE_FALSE(image.GetAlpha());
-    }
-    SECTION("bitfields")
-    {
-        REQUIRE(image.LoadFile("image/rgb16-3103.bmp", wxBITMAP_TYPE_BMP));
-        REQUIRE(image.GetData()[0] == 0xff);
+
+        REQUIRE(image.LoadFile("image/rgb32bf.bmp", wxBITMAP_TYPE_BMP));
+        REQUIRE_FALSE(image.GetAlpha());
+        REQUIRE(image.LoadFile("image/rgba32.bmp", wxBITMAP_TYPE_BMP));
+        alpha = image.GetAlpha();
+        REQUIRE(alpha);
+        REQUIRE(alpha[0] == 0x80);
     }
 }
 
