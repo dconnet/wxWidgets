@@ -453,7 +453,7 @@ private:
         // QT doesn't update the selection until this signal has been processed.
         // Deferring this event ensures that wxTreeCtrl::GetSelections() returns
         // the new selection in the wx event handler.
-        GetHandler()->CallAfter([=]()
+        GetHandler()->CallAfter([this]()
             {
                 EmitSelectChangeEvent(wxEVT_TREE_SEL_CHANGED);
             });
@@ -1131,15 +1131,10 @@ wxTreeItemId wxTreeCtrl::GetNextVisible(const wxTreeItemId& item) const
     wxASSERT_MSG(IsVisible(item), "this item itself should be visible");
 
     wxTreeItemId id = item;
-    if ( id.IsOk() )
-    {
-        while ( id = GetNext(id), id.IsOk() )
-        {
-            if ( IsVisible(id) )
-                return id;
-        }
-    }
-    return wxTreeItemId();
+    do
+        id = GetNext(id);
+    while (id.IsOk() && !IsVisible(id));
+    return id;
 }
 
 wxTreeItemId wxTreeCtrl::GetPrevVisible(const wxTreeItemId& item) const
