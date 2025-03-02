@@ -984,12 +984,12 @@ void wxThreadInternal::Cleanup(wxThread *thread)
 // ----------------------------------------------------------------------------
 
 wxThreadInternal::wxThreadInternal()
+    : m_threadId()
 {
     m_state = STATE_NEW;
     m_created = false;
     m_cancelled = false;
     m_prio = wxPRIORITY_DEFAULT;
-    m_threadId = 0;
     m_exitcode = nullptr;
 
     // set to true only when the thread starts waiting on m_semSuspend
@@ -1422,7 +1422,7 @@ void wxThread::SetPriority(unsigned int prio)
                 // For the last two, we can also use the additional priority
                 // parameter which must be in 1..99 range under Linux (TODO:
                 // what should be used for the other systems?).
-                struct sched_param sparam = { 0 };
+                struct sched_param sparam = { };
 
                 // The only scheduling policy guaranteed to be supported
                 // everywhere is this one.
