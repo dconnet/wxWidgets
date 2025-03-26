@@ -549,8 +549,8 @@ void wxWidgetCocoaImpl::SetupKeyEvent(wxKeyEvent &wxevent , NSEvent * nsEvent, N
     }
 }
 
-UInt32 g_lastButton = 0 ;
-bool g_lastButtonWasFakeRight = false ;
+static UInt32 g_lastButton = 0;
+static bool g_lastButtonWasFakeRight = false;
 
 // better scroll wheel support 
 // see http://lists.apple.com/archives/cocoa-dev/2007/Feb/msg00050.html
@@ -775,8 +775,8 @@ wxWidgetCocoaImpl::TranslateMouseEvent( NSEvent * nsEvent )
 
      case NSScrollWheel :
         {
-            float deltaX = 0.0;
-            float deltaY = 0.0;
+            CGFloat deltaX = 0;
+            CGFloat deltaY = 0;
 
             wxevent->SetEventType( wxEVT_MOUSEWHEEL ) ;
 
@@ -842,7 +842,7 @@ wxWidgetCocoaImpl::TranslateMouseEvent( NSEvent * nsEvent )
         
         case NSEventTypeMagnify:
             wxevent->SetEventType( wxEVT_MAGNIFY );
-            wxevent->m_magnification = [nsEvent magnification];
+            wxevent->m_magnification = float([nsEvent magnification]);
             break;
             
         default :
@@ -1070,10 +1070,8 @@ NSDragOperation wxOSX_draggingUpdated( id self, SEL _cmd, id <NSDraggingInfo>sen
 BOOL wxOSX_performDragOperation( id self, SEL _cmd, id <NSDraggingInfo> sender )
 {
     wxWidgetCocoaImpl* impl = (wxWidgetCocoaImpl* ) wxWidgetImpl::FindFromWXWidget( self );
-    if (impl == nullptr)
-        return NSDragOperationNone;
 
-    return impl->performDragOperation(sender, self, _cmd) ? YES:NO ;
+    return impl && impl->performDragOperation(sender, self, _cmd);
 }
 
 #endif
@@ -2020,7 +2018,7 @@ void wxCocoaGesturesImpl::TouchesBegan(NSEvent* event)
     }
 
     // Time of event in milliseconds
-    const unsigned int eventTimeStamp = event.timestamp * 1000 + 0.5;
+    const unsigned int eventTimeStamp = wxRound(event.timestamp * 1000);
 
     if ( m_touchCount == 1 )
     {
@@ -2124,7 +2122,7 @@ void wxCocoaGesturesImpl::TouchesEnded(NSEvent* event)
     m_touchCount -= touches.count;
 
     // Time of event in milliseconds
-    const unsigned int eventTimeStamp = event.timestamp * 1000 + 0.5;
+    const unsigned int eventTimeStamp = wxRound(event.timestamp * 1000);
 
     // Check if 2 fingers are lifted off together or if 2 fingers are lifted off within the time interval of 200 milliseconds
     if ( (!m_touchCount && (m_allowedGestures & two_finger_tap)) &&
@@ -2263,7 +2261,7 @@ void wxCocoaGesturesImpl::RawTouchEvent(NSEvent* event, wxEventType type, NSTouc
 
     // Iterate through all moving touches to check if the touch corresponding to "press"
     // in Press and Tap event is moving.
-    for ( int i = 0; i < [array count]; ++i )
+    for ( NSUInteger i = 0; i < [array count]; ++i )
     {
         NSTouch* touch = [array objectAtIndex:i];
 
@@ -2961,7 +2959,7 @@ wxWidgetCocoaImpl::ShowViewOrWindowWithEffect(wxWindow *win,
         default:
             wxFAIL_MSG( "unknown animation effect" );
             return false;
-    };
+    }
 
     if ( show )
     {
@@ -3007,7 +3005,7 @@ wxWidgetCocoaImpl::ShowViewOrWindowWithEffect(wxWindow *win,
     // the number of layouts here is arbitrary, but 10 seems like too few (e.g.
     // controls in wxInfoBar visibly jump around)
     const int NUM_LAYOUTS = 20;
-    for ( float f = 1./NUM_LAYOUTS; f < 1.; f += 1./NUM_LAYOUTS )
+    for ( float f = 1.0f/NUM_LAYOUTS; f < 1.0f; f += 1.0f/NUM_LAYOUTS )
         [anim addProgressMark:f];
 
     wxNSAnimationDelegate * const
@@ -3617,7 +3615,7 @@ void wxWidgetCocoaImpl::SetValue( wxInt32 v )
     }
     else if (  [m_osxView respondsToSelector:@selector(setFloatValue:)] )
     {
-        [m_osxView setFloatValue:(double)v];
+        [m_osxView setFloatValue:(float)v];
     }
     else if (  [m_osxView respondsToSelector:@selector(setDoubleValue:)] )
     {
@@ -4069,9 +4067,9 @@ bool wxWidgetCocoaImpl::DoHandleKeyEvent(NSEvent *event)
         {
             wxLogTrace(TRACE_KEYS, "Emulating missing key down event");
 
-            wxKeyEvent wxevent(wxEVT_KEY_DOWN);
-            SetupKeyEvent( wxevent, GetLastNativeKeyDownEvent() );
-            GetWXPeer()->OSXHandleKeyEvent(wxevent);
+            wxKeyEvent wxevt(wxEVT_KEY_DOWN);
+            SetupKeyEvent(wxevt, GetLastNativeKeyDownEvent());
+            GetWXPeer()->OSXHandleKeyEvent(wxevt);
         }
         return true;
     }

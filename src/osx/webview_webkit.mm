@@ -39,10 +39,6 @@
 
 using namespace wxOSXImpl;
 
-// using native types to get compile errors and warnings
-
-#define DEBUG_WEBKIT_SIZING 0
-
 // ----------------------------------------------------------------------------
 // macros
 // ----------------------------------------------------------------------------
@@ -674,12 +670,12 @@ wxString wxWebViewWebKit::GetCurrentTitle() const
 
 float wxWebViewWebKit::GetZoomFactor() const
 {
-    return m_webView.magnification;
+    return float(m_webView.magnification);
 }
 
 void wxWebViewWebKit::SetZoomFactor(float zoom)
 {
-    m_webView.magnification = zoom;
+    m_webView.magnification = double(zoom);
 }
 
 void wxWebViewWebKit::DoSetPage(const wxString& src, const wxString& baseUrl)
@@ -984,7 +980,7 @@ wxString nsErrorToWxHtmlError(NSError* error, wxWebViewNavigationError* out)
 
 - (void)webView:(WKWebView *)webView
     didFailNavigation:(WKNavigation *)navigation
-            withError:(NSError *)error;
+            withError:(NSError *)error
 {
     if (webKitWindow){
         NSString *url = webView.URL.absoluteString;
@@ -1007,7 +1003,7 @@ wxString nsErrorToWxHtmlError(NSError* error, wxWebViewNavigationError* out)
 
 - (void)webView:(WKWebView *)webView
     didFailProvisionalNavigation:(WKNavigation *)navigation
-                       withError:(NSError *)error;
+                       withError:(NSError *)error
 {
     if (webKitWindow){
         NSString *url = webView.URL.absoluteString;
