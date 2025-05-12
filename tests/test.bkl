@@ -15,8 +15,11 @@
         <if cond="FORMAT=='autoconf'">
             <res-include>$(RCDEFDIR)</res-include>
             <res-include>$(TOP_SRCDIR)include</res-include>
+            <cxxflags>$(CATCH2_CFLAGS)</cxxflags>
         </if>
-        <include>$(TOP_SRCDIR)3rdparty/catch/single_include</include>
+        <if cond="FORMAT!='autoconf'">
+            <include>$(TOP_SRCDIR)3rdparty/catch/single_include</include>
+        </if>
 
         <if cond="WX_DISABLE_PRECOMP_HEADERS=='0'">
             <if cond="FORMAT!='autoconf' and PLATFORM_WIN32=='1'">
@@ -275,6 +278,7 @@
             exec/exec.cpp
             font/fonttest.cpp
             image/image.cpp
+            image/imagwebp.cpp
             image/rawbmp.cpp
             html/htmlparser.cpp
             html/htmlwindow.cpp
@@ -364,7 +368,8 @@
     <wx-data id="data-image-sample">
         <!-- test data for image/image.cpp test unit: -->
         <files>horse.ani  horse.bmp  horse.cur  horse.gif  horse.ico  horse.jpg
-               horse.pcx  horse.png  horse.pnm  horse.tga  horse.tif  horse.xpm</files>
+               horse.pcx  horse.png  horse.pnm  horse.tga  horse.tif  horse.xpm
+               horse.webp</files>
     </wx-data>
 
     <wx-data id="data-images">

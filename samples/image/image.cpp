@@ -51,6 +51,8 @@
 
 #ifndef wxHAS_IMAGES_IN_RESOURCES
     #include "../sample.xpm"
+    #include "cursor_png.c"
+    #include "cursor_2x_png.c"
 #endif
 
 // ============================================================================
@@ -129,6 +131,8 @@ enum
     ID_ROTATE_LEFT = wxID_HIGHEST,
     ID_ROTATE_RIGHT,
     ID_RESIZE,
+    ID_FRAME_NEXT,
+    ID_FRAME_PREV,
     ID_ZOOM_x2,
     ID_ZOOM_DC,
     ID_ZOOM_NEAREST,
@@ -144,7 +148,6 @@ public:
     MyImageFrame(wxFrame *parent, const wxString& desc, const wxImage& image, double scale = 1.0)
     {
         // Retrieve image info
-        wxString info;
         int xres, yres;
         switch ( GetResolutionFromOptions(image, &xres, &yres) )
         {
@@ -158,7 +161,7 @@ public:
                 wxFALLTHROUGH;
 
             case wxIMAGE_RESOLUTION_INCHES:
-                info = wxString::Format("DPI %i x %i", xres, yres);
+                m_imgResInfo = wxString::Format("DPI %i x %i", xres, yres);
                 break;
 
             default:
@@ -166,16 +169,18 @@ public:
                 break;
         }
 
-        int numImages = desc.StartsWith("Clipboard") ? 1 : image.GetImageCount(desc);
-        if ( numImages > 1 )
+        m_imgIndex = 1;
+        m_imgScale = scale;
+        m_imgSrc = desc;
+        m_imgCount = desc.StartsWith("Clipboard") ? 1 : image.GetImageCount(desc);
+        if (m_imgCount > 1 )
         {
-            if ( !info.empty() )
-                info += ", ";
-
-            info += wxString::Format("%d images", numImages);
+            if (!m_imgResInfo.empty())
+                m_imgResInfo += ", ";
+            m_imgCountInfo = wxString::Format("%d/%d frames", m_imgIndex, m_imgCount);
         }
 
-        Create(parent, desc, wxBitmap(image, wxBITMAP_SCREEN_DEPTH, scale), info);
+        Create(parent, desc, wxBitmap(image, wxBITMAP_SCREEN_DEPTH, scale));
     }
 
     MyImageFrame(wxFrame *parent, const wxString& desc, const wxBitmap& bitmap)
@@ -184,10 +189,7 @@ public:
     }
 
 private:
-    bool Create(wxFrame *parent,
-                const wxString& desc,
-                const wxBitmap& bitmap,
-                wxString info = wxString())
+    bool Create(wxFrame *parent, const wxString& desc, const wxBitmap& bitmap)
     {
         if ( !wxFrame::Create(parent, wxID_ANY,
                               wxString::Format("Image from %s", desc),
@@ -206,6 +208,9 @@ private:
                               "Uncheck this for transparent images");
         menu->AppendSeparator();
         menu->Append(ID_RESIZE, "&Fit to window\tCtrl-F");
+        menu->AppendSeparator();
+        menu->Append(ID_FRAME_NEXT, "&Next frame\tCtrl->");
+        menu->Append(ID_FRAME_PREV, "P&revious frame\tCtrl-<");
         menu->AppendSeparator();
         menu->Append(wxID_ZOOM_IN, "Zoom &in\tCtrl-+");
         menu->Append(wxID_ZOOM_OUT, "Zoom &out\tCtrl--");
@@ -226,9 +231,12 @@ private:
         SetMenuBar(mbar);
 
         mbar->Check(ID_PAINT_BG, true);
+        mbar->Enable(ID_FRAME_NEXT, m_imgCount > 1);
+        mbar->Enable(ID_FRAME_PREV, m_imgCount > 1);
 
         CreateStatusBar(2);
-        SetStatusText(info, 1);
+        int widths[] = { -2, -1 };
+        SetStatusWidths(2, widths);
 
         SetClientSize(bitmap.GetWidth(), bitmap.GetHeight());
 
@@ -276,6 +284,37 @@ private:
            );
     }
 
+    void LoadBitmap() {
+        if (m_imgSrc.empty() || m_imgSrc.StartsWith("Clipboard"))
+            return;
+
+        wxImage image;
+        if (!image.LoadFile(m_imgSrc, wxBITMAP_TYPE_ANY, m_imgIndex - 1))
+        {
+            wxLogError("Couldn't load image %d from '%s'.", m_imgIndex, m_imgSrc);
+            return;
+        }
+
+        m_bitmap = wxBitmap(image, wxBITMAP_SCREEN_DEPTH, m_imgScale);
+
+        m_imgCountInfo = wxString::Format("%d/%d frames", m_imgIndex, m_imgCount);
+
+        UpdateStatusBar();
+    }
+
+    void OnFrame(wxCommandEvent& evt) {
+        if (evt.GetId() == ID_FRAME_NEXT) {
+            if (++m_imgIndex > m_imgCount)
+                m_imgIndex = 1;
+            LoadBitmap();
+        }
+        else if (evt.GetId() == ID_FRAME_PREV) {
+            if (--m_imgIndex <= 0)
+                m_imgIndex = m_imgCount;
+            LoadBitmap();
+        }
+    }
+
     void OnSave(wxCommandEvent& WXUNUSED(event))
     {
 #if wxUSE_FILEDLG
@@ -297,6 +336,9 @@ private:
 #endif
 #if wxUSE_LIBTIFF
                                                 "TIFF files (*.tif)|*.tif|"
+#endif
+#if wxUSE_LIBWEBP
+                                                "WebP files (*.webp)|*.webp|"
 #endif
 #if wxUSE_PCX
                                                 "PCX files (*.pcx)|*.pcx|"
@@ -557,6 +599,7 @@ private:
                     m_bitmap.GetWidth(),
                     m_bitmap.GetHeight(),
                     m_zoom);
+        SetStatusText(m_imgResInfo + m_imgCountInfo, 1);
         Refresh();
     }
 
@@ -602,6 +645,13 @@ private:
     // is used with wxImage::Scale() for zooming.
     bool m_useImageForZoom;
     wxImageResizeQuality m_resizeQuality;
+
+    int m_imgScale;
+    int m_imgCount;
+    int m_imgIndex;
+    wxString m_imgSrc;
+    wxString m_imgResInfo;
+    wxString m_imgCountInfo;
 
     wxDECLARE_EVENT_TABLE();
 };
@@ -1037,6 +1087,8 @@ wxBEGIN_EVENT_TABLE(MyImageFrame, wxFrame)
     EVT_MENU(wxID_SAVEAS, MyImageFrame::OnSave)
     EVT_MENU_RANGE(ID_ROTATE_LEFT, ID_ROTATE_RIGHT, MyImageFrame::OnRotate)
     EVT_MENU(ID_RESIZE, MyImageFrame::OnResize)
+    EVT_MENU(ID_FRAME_NEXT, MyImageFrame::OnFrame)
+    EVT_MENU(ID_FRAME_PREV, MyImageFrame::OnFrame)
 
     EVT_MENU(wxID_ZOOM_IN, MyImageFrame::OnZoom)
     EVT_MENU(wxID_ZOOM_OUT, MyImageFrame::OnZoom)
@@ -1165,7 +1217,7 @@ MyFrame::MyFrame()
     m_canvas = new MyCanvas(this);
     wxSize cz = m_canvas->GetDrawingSize();
     m_canvas->SetScrollbars(10, 10, cz.GetWidth() / 10, cz.GetHeight() / 10);
-    m_canvas->SetCursor(wxImage("cursor.png"));
+    m_canvas->SetCursorBundle(wxCursorBundle(wxBITMAP_BUNDLE_2(cursor), wxPoint(21, 0)));
 
     // slightly wider than the canvas
     SetSize(wxSize(cz.GetWidth() + FromDIP(50), FromDIP(700)));
@@ -1199,6 +1251,9 @@ void MyFrame::OnAbout( wxCommandEvent &WXUNUSED(event) )
 #endif
 #if wxUSE_LIBTIFF
     array.Add(wxTIFFHandler::GetLibraryVersionInfo().GetVersionString());
+#endif
+#if wxUSE_LIBWEBP
+    array.Add(wxWEBPHandler::GetLibraryVersionInfo().GetVersionString());
 #endif
 #if wxUSE_ZLIB && wxUSE_STREAMS
     // zlib is used by libpng
