@@ -41,11 +41,7 @@ For developing applications with wxWidgets you need to download the compiler-ind
 
 Unpack both files into the same directory so that `include` and `lib` directories are at the same level after unpacking. You should be able to compile and link applications using wxWidgets in both debug and release modes but the debug symbols are provided only for debug libraries in this archive, see below for the release build debug symbols.
 
-Note that if you're setting up a new project using these binaries, the simplest
-way to do it is to use the provided `wxwidgets.props` file: for this, open the
-`View|Property Manager` menu item in the IDE, select "Add Existing Property
-Sheet..." from the project context menu and browse to this file in the file
-open dialog.
+Note that if you're setting up a new project using these binaries, the simplest way to do it is to use the provided `wxwidgets.props` file: for this, open the `View|Property Manager` menu item in the IDE, select "Add Existing Property Sheet..." from the project context menu and browse to this file in the file open dialog.
 
 Please see the [instructions in the manual](https://docs.wxwidgets.org/3.3.0/plat_msw_binaries.html) for more details.
 
@@ -55,8 +51,8 @@ End users may download one of `wxMSW-3.3.0_vc14x_x64_ReleaseDLL.7z` or `wxMSW-3.
 
 ### For Debugging
 
-* Microsoft Visual C++ users: Files `wxMSW-3.3.0_vc14x_x64_ReleasePDB.7z` contain the debug symbols for the release build of the DLLs. Download them if you want to debug your own applications in release build or if you want to get meaningful information from mini-dumps retrieved from your users machines.
-* gcc users: Currently the debug symbols are not available for the release build of the DLLs (only the debug versions of the DLLs contains the debug symbols).
+* Microsoft Visual C++ users: File `wxMSW-3.3.0_vc14x_x64_ReleasePDB.7z` contains the debug symbols for the release build of the DLLs. Download it if you want to debug your own applications in release build or if you want to get meaningful information from mini-dumps retrieved from your users machines.
+* gcc users: Currently the debug symbols are not available for the release build of the DLLs (only the debug versions of the DLLs contain the debug symbols).
 
 ### Binary File Download Verification
 
