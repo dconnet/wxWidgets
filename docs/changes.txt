@@ -281,6 +281,7 @@ All:
 - Fix wxWebResponse::GetMimeType(), add GetContentType() (Blake-Madden, #23461).
 - Improve locale matching algorithm (Ulrich Telle, #24855)
 - Make wxLogXXX(string) safe to use (#25414).
+- Make wxPlatformInfo::Get() thread-safe (#25459).
 - Make wxString {To,From}CDouble() faster and more robust (#23287).
 - Make wxrc-generated code faster to build (DoctorNoobingstoneIPresume, #24579).
 - Multiple headers with same name in wxWebRequest (Stefan Dinkelacker, #24878).
@@ -290,10 +291,10 @@ All:
 - Preserve errno in wxString methods (Lauri Nurmi, #23113).
 - Support constructing wxString from std::string_view (Ian McInerney, #23711).
 - Update 3rd party libraries to latest versions (Maarten Bent, #25112, #25325).
-- Update translations for Corsican (Patriccollu, #25420), Czech (PB, #25412),
-  French (#25400), German (tstkr), Romanian (Cătălin Răceanu, #25403),
-  Simplified Chinese (0tkl, #25450), Turkish (Kerim Demirkaynak, #25267) and
-  Ukrainian (Yuri Chornoivan, #25410).
+- Update translations for Brazilian Portuguese (Felipe), Corsican (Patriccollu,
+  #25420), Czech (PB, #25412), French (#25400), German (tstkr),
+  Romanian (Cătălin Răceanu, #25403), Simplified Chinese (0tkl, #25450),
+  Turkish (Kerim Demirkaynak, #25267) and Ukrainian (Yuri Chornoivan, #25410).
 - Update language database (Ulrich Telle, #23437).
 - Use UTF-8 for environment variables (#25101).
 - Use variadic templates for vararg functions (#22981).
@@ -344,6 +345,7 @@ All (GUI):
 - Make wxGenericValidator more flexible (Bill Su, #24134).
 - Make wxGrid::ProcessTableMessage() more convenient to use (Joachim Wiesemann).
 - Provide reason for wxNotificationMessage dismissal (Lauri Nurmi, #24340).
+- Respect menu path style in wxFileHistory::AddFilesToMenu() (Bill Su, #25451).
 - Restore non-live-resize in wxAUI and wxSplitterWindow (AliKet, #24193).
 - Save/restore wxAuiNotebook layout (#24950).
 - Several fixes to scrolling in wxVListBox (Bill Su, #24278).
