@@ -311,6 +311,11 @@ int wxNotebook::MSWGetToolTipMessage() const
 
 wxNotebook::~wxNotebook()
 {
+    // Make sure we don't try to repaint the notebook any more: not only is
+    // this useless, it can also crash when calling member functions of a
+    // half-destroyed object.
+    Unbind(wxEVT_PAINT, &wxNotebook::OnPaint, this);
+
 #if wxUSE_UXTHEME
     if ( m_hbrBackground )
         ::DeleteObject((HBRUSH)m_hbrBackground);
@@ -1808,6 +1813,14 @@ bool wxNotebook::MSWPrintChild(WXHDC hDC, wxWindow *child)
 // Windows only: attempts to get colour for UX theme page background
 wxColour wxNotebook::GetThemeBackgroundColour() const
 {
+    if ( wxMSWDarkMode::IsActive() )
+    {
+        // We know the colour used in dark mode as we draw the notebook
+        // ourselves, so just return it (especially because the code below
+        // would return totally inappropriate light mode colour).
+        return GetBackgroundColour();
+    }
+
 #if wxUSE_UXTHEME
     if (wxUxThemeIsActive())
     {
