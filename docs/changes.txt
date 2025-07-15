@@ -85,10 +85,6 @@ Changes in behaviour not resulting in compilation errors
   mode under MSW, use the new AreAppsDark() or IsSystemDark() to check if the
   other applications or the system are using dark mode.
 
-- Date/time picker controls are now locale-aware by default in wxMSW, which
-  means that they do _not_ use OS default date/time format any longer unless
-  wxUILocale::UseDefault() is called.
-
 - wxUILocale::IsSupported() now returns false for unavailable locales under
   Unix systems without trying to fall back on another locale using the same
   language in a different region, e.g. it doesn't use fr_FR if fr_BE is not
@@ -238,6 +234,11 @@ Changes in behaviour which may result in build errors
 - wx/cursor.h doesn't include wx/utils.h any longer, please include it
   explicitly if you need to use any functions defined there other than
   cursor-related ones.
+
+- wxStyledTextCtrl::AddSelection() erroneously returned int, while the
+  corresponding Scintilla doesn't have any return value, so it was changed
+  to return void, please update your code to not use its return value.
+
 
 3.3.1: (released 2025-??-??)
 ----------------------------
