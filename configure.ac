@@ -3518,17 +3518,21 @@ if test "$wxUSE_SHARED" = "yes"; then
                 wx_cv_elf_symver_multiple,
                 [
                     echo "lib_new {}; lib_old { *; };" >conftest.sym
+                    AC_LANG_PUSH(C++)
                     AC_LINK_IFELSE([
                         AC_LANG_SOURCE([
                             #include "wx/private/elfversion.h"
-                            wxELF_SYMVER("foo","foo@lib_old")
-                            wxELF_SYMVER("foo","foo@@lib_new")
+                            extern "C" {
+                            wxELF_SYMVER("_foo","_foo@lib_old")
+                            wxELF_SYMVER("_foo","_foo@@lib_new")
                             void foo() {}
+                            }
                             int main() { return 0; }
                         ])],
                         wx_cv_elf_symver_multiple=yes,
                         wx_cv_elf_symver_multiple=no
                     )
+                    AC_LANG_POP()
                     rm -f conftest.sym
                 ]
             )
@@ -3540,16 +3544,20 @@ if test "$wxUSE_SHARED" = "yes"; then
                     wx_cv_elf_symver,
                     [
                         echo "lib_new {}; lib_old { *; };" >conftest.sym
+                        AC_LANG_PUSH(C++)
                         AC_LINK_IFELSE([
                             AC_LANG_SOURCE([
                                 #include "wx/private/elfversion.h"
-                                wxELF_SYMVER("foo","foo@@lib_new")
+                                extern "C" {
+                                wxELF_SYMVER("_foo","_foo@@lib_new")
                                 void foo() {}
+                                }
                                 int main() { return 0; }
                             ])],
                             wx_cv_elf_symver=yes,
                             wx_cv_elf_symver=no
                         )
+                        AC_LANG_POP()
                         rm -f conftest.sym
                     ]
                 )
@@ -3627,17 +3635,15 @@ if test "$wxUSE_SHARED" = "yes"; then
             DYLIB_RPATH_POSTLINK="${HOST_PREFIX}install_name_tool -id \$@ \$@"
             cat <<EOF >change-install-names
 #!/bin/sh
-libnames=\`cd lib ; ls -1 | grep '\.[[0-9]][[0-9]]*\.dylib\$'\`
+libnames=\$(cd lib ; ls -1 libwx*${WX_RELEASE}.dylib)
 changes=''
 for dep in \${libnames} ; do
-    changes="\${changes} -change \${4}/\${dep} \${3}/\${dep}"
+    target=\$(readlink -f \${4}/\${dep})
+    changes="\${changes} -change \${target} \${3}/\${dep}"
 done
 for i in \${libnames} ; do
-    if test -L \${1}/\${i}; then
-        # skip symbolic links
-        continue
-    fi
-    ${HOST_PREFIX}install_name_tool \${changes} -id \${3}/\${i} \${1}/\${i}
+    lib=\$(readlink -f \${1}/\${i})
+    ${HOST_PREFIX}install_name_tool \${changes} -id \${3}/\${i} \${lib}
 done
 
 if test -f "\${2}/wxrc-${WX_RELEASE}" ; then
@@ -7564,7 +7570,7 @@ STD_BASE_LIBS="base"
 STD_GUI_LIBS=""
 BUILT_WX_LIBS="base"
 
-if test "$wxUSE_SOCKETS" = "yes" ; then
+if test "$wxUSE_SOCKETS" = "yes" -o "$wxUSE_WEBREQUEST" = "yes"; then
     STD_BASE_LIBS="net $STD_BASE_LIBS"
     BUILT_WX_LIBS="net $BUILT_WX_LIBS"
 fi
