@@ -544,6 +544,9 @@ void wxStyledTextCtrlMiniMap::OnEditPaint(wxPaintEvent& event)
 
 void wxStyledTextCtrlMiniMap::OnEditUpdate(wxStyledTextEvent& event)
 {
+    // Let other handlers process this event in any case.
+    event.Skip();
+
     if ( event.GetUpdated() & wxSTC_UPDATE_V_SCROLL )
     {
         auto const editFirst = m_edit->GetFirstVisibleLine();
@@ -563,7 +566,7 @@ void wxStyledTextCtrlMiniMap::OnEditUpdate(wxStyledTextEvent& event)
         SyncSelection();
 
     // Note that we don't need to refresh the map for wxSTC_UPDATE_CONTENT
-    // changes, as Scintilla already refreshs it on its own when the shared
+    // changes, as Scintilla already refreshes it on its own when the shared
     // document contents change.
 }
 
