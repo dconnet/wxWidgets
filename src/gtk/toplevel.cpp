@@ -599,7 +599,7 @@ wxGetFrameExtents(GdkWindow* window, wxTopLevelWindow::DecorSize* decorSize)
 
     if ( !data || nitems != 4 )
     {
-        wxLogTrace(TRACE_TLWSIZE, "Invalid _NET_FRAME_EXTENTS: %d items",
+        wxLogTrace(TRACE_TLWSIZE, "Invalid _NET_FRAME_EXTENTS: %lu items",
                    nitems);
         return false;
     }
@@ -1300,6 +1300,12 @@ void wxTopLevelWindowGTK::ShowWithoutActivating()
 
 void wxTopLevelWindowGTK::Raise()
 {
+    // Raising the window would show it and we don't want this to happen if
+    // it's currently hidden and it would also break our deferred show logic,
+    // so just do nothing in this case.
+    if (!m_isShown)
+        return;
+
     gtk_window_present( GTK_WINDOW( m_widget ) );
 }
 
