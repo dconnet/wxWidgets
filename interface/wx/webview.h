@@ -857,7 +857,7 @@ public:
     This backend is enabled by default only when using CMake. To build it follow these steps:
     - When not using CMake:
         - Download the <a href="https://aka.ms/webviewnuget">WebView2 SDK</a>
-        NuGet package (Version 1.0.864.35 or newer)
+        NuGet package (Version 1.0.3485.44 or newer)
         - Extract the package (it's a zip archive) to @c WX_SRCDIR/3rdparty/webview2
         (you should have @c 3rdparty/webview2/build/native/include/WebView2.h
         file after unpacking it)
@@ -917,6 +917,13 @@ public:
 
     The predefined @c wxWebViewBackendWebKit constant contains the name of this
     backend.
+
+    @note WebKitGTK 2.42+ may fail to render content due to
+    DMA-BUF hardware acceleration issues. This can be resolved by calling
+    @code
+    wxSetEnv("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
+    @endcode
+    before creating a @c wxWebView instance.
 
     @subsection wxWEBVIEW_WEBKIT_MACOS wxWEBVIEW_WEBKIT (macOS)
 
