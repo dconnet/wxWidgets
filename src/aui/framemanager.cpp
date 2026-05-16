@@ -402,7 +402,7 @@ public:
 
         Create(mgr.GetManagedWindow(), wxID_ANY,
                        wxDefaultPosition, wxDefaultSize,
-                       flags | wxAUI_TB_PLAIN_BACKGROUND),
+                       flags | wxAUI_TB_PLAIN_BACKGROUND);
 
         SetFont(GetFont().MakeSmaller());
 

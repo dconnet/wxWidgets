@@ -7094,7 +7094,7 @@ void wxRichTextPlainText::DrawTabbedString(wxDC& dc, const wxRichTextAttr& attr,
     //                     Mac: Draw selection rectangle                     //
     ///////////////////////////////////////////////////////////////////////////
 
-    if (0 <= selStart && selStart <= selEnd && selEnd < endpos.GetCount())
+    if (0 <= selStart && selStart <= selEnd && size_t(selEnd) < endpos.GetCount())
     {
         int selectionWidth = endpos[selEnd] - startpos[selStart] + 1; // Avoid kerning gaps
         wxDCBrushChanger autobrush(dc, wxBrush(selClr));

@@ -1254,45 +1254,6 @@ void wxDC::DrawLabel(const wxString& text,
         m_pimpl->CalcBoundingBox(wxPoint(x0, y0), wxSize(width0, height));
 }
 
-/*
-Notes for wxWidgets DrawEllipticArcRot(...)
-
-wxDCBase::DrawEllipticArcRot(...) draws a rotated elliptic arc or an ellipse.
-It uses wxDCBase::CalculateEllipticPoints(...) and wxDCBase::Rotate(...),
-which are also new.
-
-All methods are generic, so they can be implemented in wxDCBase.
-
-CalculateEllipticPoints(...) fills a given list of wxPoints with some points
-of an elliptic arc. The algorithm is pixel-based: In every row (in flat
-parts) or every column (in steep parts) only one pixel is calculated.
-Trigonometric calculation (sin, cos, tan, atan) is only done if the
-starting angle is not equal to the ending angle. The calculation of the
-pixels is done using simple arithmetic only and should perform not too
-bad even on devices without floating point processor. I didn't test this yet.
-
-Rotate(...) rotates a list of point pixel-based, you will see rounding errors.
-For instance: an ellipse rotated 180 degrees is drawn
-slightly different from the original.
-
-The points are then moved to an array and used to draw a polyline and/or polygon
-(with center added, the pie).
-The result looks quite similar to the native ellipse, only e few pixels differ.
-
-The performance on a desktop system (Athlon 1800, WinXP) is about 7 times
-slower as DrawEllipse(...), which calls the native API.
-An rotated ellipse outside the clipping region takes nearly the same time,
-while an native ellipse outside takes nearly no time to draw.
-
-If you draw an arc with this new method, you will see the starting and ending angles
-are calculated properly.
-If you use DrawEllipticArc(...), you will see they are only correct for circles
-and not properly calculated for ellipses.
-
-Peter Lenhard
-p.lenhard@t-online.de
-*/
-
 float wxDCImpl::GetFontPointSizeAdjustment(float dpi)
 {
     // wxMSW has long-standing bug where wxFont point size is interpreted as

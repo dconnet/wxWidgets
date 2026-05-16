@@ -505,7 +505,7 @@ void wxSVGFileDC::SetShapeRenderingMode(wxSVGShapeRenderingMode renderingMode)
 
 wxString wxSVGFileDC::GetSVGDocument() const
 {
-    return ((wxSVGFileDCImpl*)GetImpl())->GetSVGDocument();
+    return static_cast<const wxSVGFileDCImpl*>(GetImpl())->GetSVGDocument();
 }
 
 bool wxSVGFileDC::Save()
