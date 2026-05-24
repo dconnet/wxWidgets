@@ -1310,6 +1310,33 @@ TEST_CASE_METHOD(ImageHandlersInit, "wxImage::BadGIF", "[image][gif][error]")
     CHECK( image.GetSize() == wxSize(1200, 800) );
 }
 
+TEST_CASE_METHOD(ImageHandlersInit, "wxImage::BadGIFLZWMinCodeSize",
+                 "[image][gif][error]")
+{
+    // The LZW minimum code size byte that follows the local colour table is
+    // not validated. dgif() sizes ab_prefix/ab_tail for codes up to 12 bits
+    // (allocSize == 4096+1), so a code size of 12 makes ab_free start at 4098
+    // and the first alphabet update then writes one entry past the end of
+    // both arrays. The 2x1 image below is the minimum needed to exercise the
+    // second LZW iteration where the alphabet update happens.
+    static const unsigned char data[] =
+    {
+        0x47, 0x49, 0x46, 0x38, 0x39, 0x61,             // "GIF89a"
+        0x02, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00,       // LSDB: 2x1, no GCT
+        0x2c,                                           // image separator
+        0x00, 0x00, 0x00, 0x00, 0x02, 0x00, 0x01, 0x00, // 2x1 frame at 0,0
+        0x80,                                           // LCT, depth=0 (2 col)
+        0x00, 0x00, 0x00, 0xff, 0xff, 0xff,             // LCT entries
+        0x0c,                                           // LZW min code size=12
+        0x04, 0x00, 0x20, 0x00, 0x00,                   // sub-block: codes 0,1
+        0x00,                                           // sub-block terminator
+        0x3b,                                           // trailer
+    };
+    wxMemoryInputStream mis(data, WXSIZEOF(data));
+    wxImage img;
+    REQUIRE( !img.LoadFile(mis, wxBITMAP_TYPE_GIF) );
+}
+
 #endif // wxUSE_GIF
 
 #if wxUSE_PCX
@@ -1361,6 +1388,22 @@ TEST_CASE_METHOD(ImageHandlersInit, "wxImage::BadXPM", "[image][xpm][error]")
     REQUIRE( !img.LoadFile(mis, wxBITMAP_TYPE_XPM) );
 }
 
+TEST_CASE_METHOD(ImageHandlersInit, "wxImage::BadXPMUnterminatedQuote",
+                 "[image][xpm][error]")
+{
+    // A payload whose final " is never closed: the quote-stripping loop in
+    // wxXPMDecoder::ReadFile() advanced p past the buffer terminator after
+    // strncpy() and then dereferenced one byte further on the next outer
+    // for-loop iteration, reading past the end of the wxCharBuffer.
+    static const unsigned char data[] =
+    {
+        0x22,0x61,0x62,0x63,
+    };
+    wxMemoryInputStream mis(data, WXSIZEOF(data));
+    wxImage img;
+    REQUIRE( !img.LoadFile(mis, wxBITMAP_TYPE_XPM) );
+}
+
 #endif // wxUSE_XPM
 
 #if wxUSE_IFF
@@ -1383,6 +1426,47 @@ TEST_CASE_METHOD(ImageHandlersInit, "wxImage::BadIFF", "[image][iff][error]")
         0x00,0x00,
     };
     wxMemoryInputStream mis(data, WXSIZEOF(data));
+    wxImage img;
+    REQUIRE( !img.LoadFile(mis, wxBITMAP_TYPE_IFF) );
+}
+
+TEST_CASE_METHOD(ImageHandlersInit, "wxImage::BadIFFBmhdOverflow",
+                 "[image][iff][error]")
+{
+    // BMHD width = 21849, height = 65535 gives bmhd_width * bmhd_height * 3
+    // = 4 295 622 645, which overflows the 32-bit signed int product used by
+    // wxIFFDecoder::ReadIFF() to size the pixel buffer and wraps down to
+    // 655 349. The subsequent BODY decode loop writes 3 * bmhd_width bytes
+    // per scanline, so a BODY chunk containing 10 lineskips' worth of zeros
+    // (lineskip = 2732 for this width, total 27320 bytes) is enough to
+    // overrun the undersized heap allocation. The fix rejects the file at
+    // BMHD validation time.
+    wxImage::AddHandler(new wxIFFHandler);
+
+    static const unsigned char header[] =
+    {
+        0x46,0x4f,0x52,0x4d,            // "FORM"
+        0x00,0x00,0x6a,0xe0,            // FORM length = 27360
+        0x49,0x4c,0x42,0x4d,            // "ILBM"
+        0x42,0x4d,0x48,0x44,            // "BMHD"
+        0x00,0x00,0x00,0x14,            // BMHD chunk length = 20
+        0x55,0x59,                      // width  = 21849
+        0xff,0xff,                      // height = 65535
+        0x00,0x00,0x00,0x00,            // x, y
+        0x01,                           // nPlanes
+        0x00,                           // masking
+        0x00,                           // compression (BI_RGB, uncompressed)
+        0x00,                           // pad
+        0x00,0x00,                      // transparentColor
+        0x00,0x00,                      // x/y aspect
+        0x00,0x00,0x00,0x00,            // page width / height
+        0x42,0x4f,0x44,0x59,            // "BODY"
+        0x00,0x00,0x6a,0xb8,            // BODY chunk length = 27320
+    };
+    std::vector<unsigned char> data(header, header + WXSIZEOF(header));
+    data.resize(data.size() + 27320, 0);
+
+    wxMemoryInputStream mis(data.data(), data.size());
     wxImage img;
     REQUIRE( !img.LoadFile(mis, wxBITMAP_TYPE_IFF) );
 }
