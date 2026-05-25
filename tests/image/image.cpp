@@ -1187,6 +1187,48 @@ TEST_CASE_METHOD(ImageHandlersInit, "wxImage::ReadCorruptedTGA", "[image]")
     */
     corruptTGA[18] = 0x7f;
     REQUIRE( !tgaImage.LoadFile(memIn) );
+
+    /*
+    A colour-mapped TGA with a non-zero colour-map origin.
+    Older code allocated the palette using paletteLength only, but
+    indexed it using paletteStart + i, leading to OOB writes.
+    */
+    static const unsigned char badPaletteTGA[] =
+    {
+        0,          // ID length
+        1,          // Color map type
+        1,          // Image type = color mapped
+
+        1, 0,       // Color map origin (paletteStart = 1)
+        1, 0,       // Color map length = 1 entry
+        24,         // Color map entry size
+
+        0, 0,       // X-origin
+        0, 0,       // Y-origin
+
+        1, 0,       // Width = 1
+        1, 0,       // Height = 1
+
+        8,          // Bits per pixel
+        0,          // Image descriptor
+
+        // One palette entry (BGR)
+        0xff, 0x00, 0x00,
+
+        // One pixel index
+        0x00
+    };
+
+    wxMemoryInputStream badPaletteStream(
+        badPaletteTGA,
+        WXSIZEOF(badPaletteTGA)
+    );
+
+    REQUIRE( badPaletteStream.IsOk() );
+
+    REQUIRE(
+        !tgaImage.LoadFile(badPaletteStream, wxBITMAP_TYPE_TGA)
+    );
 }
 
 #if wxUSE_GIF
@@ -1467,6 +1509,46 @@ TEST_CASE_METHOD(ImageHandlersInit, "wxImage::BadIFFBmhdOverflow",
     data.resize(data.size() + 27320, 0);
 
     wxMemoryInputStream mis(data.data(), data.size());
+    wxImage img;
+    REQUIRE( !img.LoadFile(mis, wxBITMAP_TYPE_IFF) );
+}
+
+TEST_CASE_METHOD(ImageHandlersInit, "wxImage::BadIFFBodyTruncated",
+                 "[image][iff][error]")
+{
+    // A BODY chunk that declares more data than the file actually contains:
+    // dataptr + 8 + chunkLen > dataend, so the truncated branch in
+    // wxIFFDecoder::ReadIFF() runs and used to set chunkLen = dataend - dataptr,
+    // which is 8 too large (the chunk header is 8 bytes). The non-RLE BODY
+    // decode loop then reads up to 8 bytes past the heap-allocated input
+    // buffer. width = 16 with 1 bitplane gives lineskip = 2, and the second
+    // half of the scanline (j = 8..15) reads bodyptr[1], one byte past dataend.
+    // transparentColor = 0x4000 ensures ConvertToImage() also rejects the
+    // resulting image so the test fails cleanly with the fix applied.
+    wxImage::AddHandler(new wxIFFHandler);
+
+    static const unsigned char data[] =
+    {
+        0x46,0x4f,0x52,0x4d,            // "FORM"
+        0x00,0x00,0x00,0x29,            // FORM length (not validated)
+        0x49,0x4c,0x42,0x4d,            // "ILBM"
+        0x42,0x4d,0x48,0x44,            // "BMHD"
+        0x00,0x00,0x00,0x14,            // BMHD chunk length = 20
+        0x00,0x10,                      // width  = 16
+        0x00,0x01,                      // height = 1
+        0x00,0x00,0x00,0x00,            // x, y
+        0x01,                           // nPlanes
+        0x00,                           // masking
+        0x00,                           // compression (uncompressed)
+        0x00,                           // pad
+        0x40,0x00,                      // transparentColor = 0x4000
+        0x00,0x00,                      // x/y aspect
+        0x00,0x00,0x00,0x00,            // page width / height
+        0x42,0x4f,0x44,0x59,            // "BODY"
+        0x00,0x00,0x00,0x64,            // BODY chunk length = 100 (lie)
+        0xff,                           // 1 byte of body data
+    };
+    wxMemoryInputStream mis(data, WXSIZEOF(data));
     wxImage img;
     REQUIRE( !img.LoadFile(mis, wxBITMAP_TYPE_IFF) );
 }
