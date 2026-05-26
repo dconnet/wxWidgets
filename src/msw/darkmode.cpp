@@ -111,6 +111,9 @@ std::unique_ptr<wxDarkModeSettings> wxDarkModeModule::ms_settings;
 DwmSetWindowAttribute_t
 wxDarkModeModule::ms_pfnDwmSetWindowAttribute = (DwmSetWindowAttribute_t)-1;
 
+// Implemented here to ensure that it's generated inside the DLL.
+wxDarkModeSettings::~wxDarkModeSettings() = default;
+
 #if wxUSE_DARK_MODE
 
 #ifndef WX_PRECOMP
@@ -181,10 +184,12 @@ DWORD (WINAPI *SetPreferredAppMode)(DWORD) = nullptr;
 
 bool InitDarkMode()
 {
-    // In theory, dark mode support was added in v1809 (build 17763), so enable
+    // Enable dark mode for Windows 10 1903 (build 18362) and later.
+    // In theory, dark mode support was added in v1809 (build 17763). However,
+    // the undocumented functions changed in v1903. So enable
     // it for all later versions, even though in practice this code has been
     // mostly tested under v2004 ("20H1", build number 19041) and later ones.
-    if ( !wxCheckOsVersion(10, 0, 17763) )
+    if ( !wxCheckOsVersion(10, 0, 18362) )
     {
         wxLogTrace(TRACE_DARKMODE, "Unsupported due to OS version");
         return false;
@@ -293,9 +298,6 @@ wxApp::AppearanceResult wxApp::SetAppearance(Appearance appearance)
 // ----------------------------------------------------------------------------
 // Default wxDarkModeSettings implementation
 // ----------------------------------------------------------------------------
-
-// Implemented here to ensure that it's generated inside the DLL.
-wxDarkModeSettings::~wxDarkModeSettings() = default;
 
 wxColour wxDarkModeSettings::GetColour(wxSystemColour index)
 {
@@ -423,13 +425,9 @@ bool IsActive()
     return wxMSWImpl::ShouldUseDarkMode();
 }
 
-void EnableForTLW(HWND hwnd)
+void ConfigureTLW(HWND hwnd)
 {
-    // Nothing to do, dark mode support not enabled or dark mode is not used.
-    if ( !wxMSWImpl::ShouldUseDarkMode() )
-        return;
-
-    BOOL useDarkMode = TRUE;
+    BOOL useDarkMode = wxMSWImpl::ShouldUseDarkMode();
 
     // DWMWA_USE_IMMERSIVE_DARK_MODE is 19 for v1809, but is 20 for later
     // versions, so to set title bar black for both v1809 and later versions,
@@ -455,7 +453,8 @@ void EnableForTLW(HWND hwnd)
     if ( FAILED(hr) )
         wxLogApiError("DwmSetWindowAttribute(USE_IMMERSIVE_DARK_MODE)", hr);
 
-    wxMSWImpl::AllowDarkModeForWindow(hwnd, true);
+    if ( wxMSWImpl::AllowDarkModeForWindow != nullptr )
+        wxMSWImpl::AllowDarkModeForWindow(hwnd, true);
 }
 
 void AllowForWindow(HWND hwnd, const wchar_t* themeName, const wchar_t* themeId)
@@ -770,6 +769,21 @@ wxApp::AppearanceResult wxApp::SetAppearance(Appearance WXUNUSED(appearance))
     return AppearanceResult::Failure;
 }
 
+wxColour wxDarkModeSettings::GetColour(wxSystemColour WXUNUSED(index))
+{
+    return wxColour();
+}
+
+wxColour wxDarkModeSettings::GetMenuColour(wxMenuColour WXUNUSED(which))
+{
+    return wxColour();
+}
+
+wxPen wxDarkModeSettings::GetBorderPen()
+{
+    return wxPen{};
+}
+
 namespace wxMSWDarkMode
 {
 
@@ -778,11 +792,11 @@ bool IsActive()
     return false;
 }
 
-void EnableForTLW(HWND WXUNUSED(hwnd))
+void ConfigureTLW(HWND WXUNUSED(hwnd))
 {
 }
 
-void AllowForWindow(HWND WXUNUSED(hwnd), const wchar_t* WXUNUSED(themeClass))
+void AllowForWindow(HWND WXUNUSED(hwnd), const wchar_t* WXUNUSED(themeClass), const wchar_t* WXUNUSED(themeId))
 {
 }
 

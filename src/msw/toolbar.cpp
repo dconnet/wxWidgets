@@ -55,9 +55,7 @@
 #include "wx/msw/dc.h"
 #include "wx/msw/dib.h"
 
-#if wxUSE_UXTHEME
 #include "wx/msw/uxtheme.h"
-#endif
 
 #include "wx/msw/private/darkmode.h"
 
@@ -2074,8 +2072,6 @@ void wxToolBar::OnSysColourChanged(wxSysColourChangedEvent& event)
     int nrows = m_maxRows;
     m_maxRows = 0;      // otherwise SetRows() wouldn't do anything
     SetRows(nrows);
-
-    Refresh();
 }
 
 void wxToolBar::OnMouseEvent(wxMouseEvent& event)
