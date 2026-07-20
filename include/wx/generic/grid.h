@@ -5,6 +5,7 @@
 // Modified by: Santiago Palacios
 // Created:     1/08/1999
 // Copyright:   (c) Michael Bedward
+//              (c) 2026 wxWidgets development team
 // Licence:     wxWindows licence
 /////////////////////////////////////////////////////////////////////////////
 
@@ -2827,6 +2828,9 @@ protected:
     bool       m_editable;              // applies to whole grid
     bool       m_cellEditCtrlEnabled;   // is in-place edit currently shown?
 
+    // Editor used by the currently active edit control.
+    wxGridCellEditorPtr m_activeCellEditor;
+
     TabBehaviour m_tabBehaviour;        // determines how the TAB key behaves
 
     void Init();        // common part of all ctors
@@ -2914,6 +2918,9 @@ private:
     // Event handler for DPI change event recomputes pixel values and relays
     // out the grid.
     void OnDPIChanged(wxDPIChangedEvent& event);
+
+    void OnSysColourChanged(wxSysColourChangedEvent& event);
+    void UpdateColours();
 
     // implement wxScrolledCanvas method to return m_gridWin size
     virtual wxSize GetSizeAvailableForScrollTarget(const wxSize& size) override;
@@ -3170,6 +3177,15 @@ private:
                 );
     }
 
+    // Return the editor actually being used by the current edit control.
+    wxGridCellEditorPtr GetActiveCellEditorPtr() const
+    {
+        if ( m_activeCellEditor )
+            return m_activeCellEditor;
+
+        return GetCurrentCellEditorPtr();
+    }
+
     // Show/hide the cell editor for the current cell unconditionally.
 
     // Return false if the editor was activated instead of being shown and also
@@ -3202,6 +3218,12 @@ private:
     // elements (which is the default)
     wxGridFixedIndicesSet *m_setFixedRows,
                           *m_setFixedCols;
+
+    // Whether background and text colours were set by the user.
+    bool m_hasUserCellBg = false;
+    bool m_hasUserCellFg = false;
+    bool m_hasUserLabelBg = false;
+    bool m_hasUserLabelFg = false;
 
     wxDECLARE_DYNAMIC_CLASS(wxGrid);
     wxDECLARE_EVENT_TABLE();
