@@ -30,7 +30,7 @@
 #include "wx/tooltip.h"
 #include "wx/wupdlock.h"
 
-#include <memory>
+#include "wx/private/make_unique.h"
 
 class WindowTestCase
 {
@@ -253,12 +253,14 @@ TEST_CASE_METHOD(WindowTestCase, "Window::Mouse", "[window]")
     CHECK(!m_window->HasCapture());
 }
 
+#if wxUSE_HELP
 TEST_CASE_METHOD(WindowTestCase, "Window::ContextHelpCaptureLost",
                  "[window][help]")
 {
-#if wxUSE_HELP
-    ContextHelpCaptureLostTester* const win =
-        new ContextHelpCaptureLostTester(wxTheApp->GetTopWindow());
+    auto const winPtr =
+        std::make_unique<ContextHelpCaptureLostTester>(wxTheApp->GetTopWindow());
+    auto* const win = winPtr.get();
+
     ContextHelpCaptureLostState state(win);
     state.Start();
 
@@ -270,8 +272,8 @@ TEST_CASE_METHOD(WindowTestCase, "Window::ContextHelpCaptureLost",
     CHECK(state.WasCaptureLostSent());
     CHECK(!state.WasFallbackUsed());
     CHECK(!win->HasCapture());
-#endif // wxUSE_HELP
 }
+#endif // wxUSE_HELP
 
 TEST_CASE_METHOD(WindowTestCase, "Window::Properties", "[window]")
 {
