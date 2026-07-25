@@ -1416,6 +1416,18 @@ public:
     //@{
 
     /**
+        Possible flags for MSWEnableDarkMode().
+
+        @since 3.3.4
+    */
+    enum DarkMode
+    {
+        DarkMode_Auto   = 0, ///< Use dark mode if the system is using it.
+        DarkMode_Always = 1, ///< Force using dark mode.
+        DarkMode_Never  = 2, ///< Force using light mode.
+    };
+
+    /**
         Enable experimental dark mode support for MSW applications.
 
         This function uses @e undocumented, and unsupported by Microsoft,
@@ -1439,10 +1451,11 @@ public:
         - wxTimePickerCtrl, wxDatePickerCtrl and wxCalendarCtrl don't support dark mode
           and use the same (light) background as by default in it.
 
-        @param flags Can include @c wxApp::DarkMode_Always to force enabling
-            dark mode for the application, even if the system doesn't use the
-            dark mode by default. Otherwise dark mode is only used if it is the
-            default mode for the applications on the current system.
+        @param flags Can be @c wxApp::DarkMode_Always to force dark mode
+            regardless of the system mode, @c wxApp::DarkMode_Never to likewise
+            force light mode, or @c wxApp::DarkMode_Auto to follow the system
+            mode. The constant @c wxApp::DarkMode_Never is available since
+            wxWidgets 3.3.4.
         @param settings If specified, allows to customize dark mode appearance.
             Please see wxDarkModeSettings documentation for more information.
 
@@ -1454,7 +1467,7 @@ public:
         @since 3.3.0
      */
     bool
-    MSWEnableDarkMode(int flags = 0, wxDarkModeSettings* settings = nullptr);
+    MSWEnableDarkMode(DarkMode flags = 0, wxDarkModeSettings* settings = nullptr);
 
     //@}
 };
