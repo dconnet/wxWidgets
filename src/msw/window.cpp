@@ -4155,11 +4155,8 @@ void wxWindowMSW::MSWSetDarkOrLightMode(SetMode WXUNUSED(setmode))
     {
         MSWGetDarkModeSupport(support);
     }
-    else
-    {
-        // This is the theme name for light mode.
-        support.themeName = L"Explorer";
-    }
+    // Else to restore light mode, use support.themeName == nullptr and
+    // support.themeId == nullptr.
 
     // This updates scroll bars, if there are any.
     wxMSWDarkMode::AllowForWindow(m_hWnd, support.themeName, support.themeId);
@@ -4176,6 +4173,13 @@ void wxWindowMSW::MSWSetDarkOrLightMode(SetMode WXUNUSED(setmode))
         HBRUSH hbr = GetHbrushOf(*brush);
         ::SetClassLongPtr(m_hWnd, GCLP_HBRBACKGROUND, LONG_PTR(hbr));
     }
+
+#if wxUSE_TOOLTIPS
+    if ( m_tooltip )
+    {
+        wxToolTip::SetDarkOrLightMode();
+    }
+#endif
 }
 
 // ===========================================================================
