@@ -3846,10 +3846,18 @@ wxWindowMSW::MSWHandleMessage(WXLRESULT *result,
 
                     case wxBORDER_STATIC:
                     case wxBORDER_RAISED:
-                    case wxBORDER_SUNKEN:
                         // In dark mode, explicitly draw these border styles because
                         // the default drawing uses light mode colours.
                         drawBorder = wxMSWDarkMode::IsActive();
+                        break;
+
+                    case wxBORDER_SUNKEN:
+                        // In dark mode, explicitly draw the border unless the window
+                        // draws a good border itself. When the window draws a good
+                        // border, DoTranslateBorder() translates wxBORDER_THEME to
+                        // wxBORDER_SUNKEN.
+                        drawBorder = wxMSWDarkMode::IsActive() &&
+                            MSWShouldDrawDarkThemeBorder();
                         break;
 
                     case wxBORDER_NONE:
@@ -4150,16 +4158,24 @@ void wxWindowMSW::MSWGetDarkModeSupport(MSWDarkModeSupport& support) const
 
 void wxWindowMSW::MSWSetDarkOrLightMode(SetMode WXUNUSED(setmode))
 {
+    const wchar_t* themeName = nullptr;
+    const wchar_t* themeId = nullptr;
+
     MSWDarkModeSupport support;
+    MSWGetDarkModeSupport(support);
     if ( wxMSWDarkMode::IsActive() )
     {
-        MSWGetDarkModeSupport(support);
+        themeName = support.themeName;
+        themeId = support.themeId;
     }
-    // Else to restore light mode, use support.themeName == nullptr and
-    // support.themeId == nullptr.
+    else if ( support.isLightModeThemed )
+    {
+        themeName = L"Explorer";
+    }
+    //else: Disable themes.
 
     // This updates scroll bars, if there are any.
-    wxMSWDarkMode::AllowForWindow(m_hWnd, support.themeName, support.themeId);
+    wxMSWDarkMode::AllowForWindow(m_hWnd, themeName, themeId);
 
     // If the window class has a background brush, update it.
     // This is the value in WNDCLASS::hbrBackground.
