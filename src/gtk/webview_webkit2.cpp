@@ -639,7 +639,7 @@ wxgtk_initialize_web_extensions(WebKitWebContext *context,
             {
                 exepath + "/..",
                 exepath + "/../..",
-                exepath + "/lib",
+                exepath,
             };
 
             for ( size_t n = 0; n < WXSIZEOF(directories); ++n )
