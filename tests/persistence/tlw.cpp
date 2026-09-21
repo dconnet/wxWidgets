@@ -88,11 +88,7 @@ TEST_CASE_METHOD(PersistenceTests, "wxPersistTLW", "[persist][tlw]")
 
     // Wayland doesn't allow clients to position their own top-level windows
     // at all, unlike X11, so don't check the restored position there.
-#ifdef __WXGTK3__
-    const bool checkPosition = wxGTKImpl::IsX11(nullptr);
-#else
-    const bool checkPosition = true;
-#endif
+    const bool checkPosition = !IsRunningUnderWayland();
 
     // Save the frame geometry.
     {
@@ -144,7 +140,10 @@ TEST_CASE_METHOD(PersistenceTests, "wxPersistTLW", "[persist][tlw]")
 #ifdef __WXGTK__
         // When using Xvfb, the frame will never get iconized, presumably
         // because there is no WM, so don't even bother waiting or warning.
-        if ( IsRunningUnderXVFB() )
+        //
+        // Also skip this check under Wayland where we use a headless
+        // compositor without WM as well.
+        if ( IsRunningUnderXVFB() || IsRunningUnderWayland() )
         {
             checkIconized = false;
         }
@@ -323,6 +322,63 @@ TEST_CASE_METHOD(PersistenceTests, "wxPersistTLW::OffScreen", "[persist][tlw]")
         int val = -1;
         REQUIRE(GetConfig().Read(FRAME_OPTIONS_PREFIX "/offscreen", &val));
         CHECK(val == 1);
+    }
+}
+
+// Check that the geometry saved at one DPI is rescaled when it is restored at
+// a different one.
+TEST_CASE_METHOD(PersistenceTests, "wxPersistTLW::DPI", "[persist][tlw][dpi]")
+{
+    const wxPoint pos(100, 150);
+
+    // Use a relatively small size, so that the frame still fits on the screen
+    // after being scaled by 2 below.
+    const wxSize size(225, 175);
+
+    SavePersistenceTestFrame(pos, size);
+
+    // The frame size can be greater than the requested one, e.g. because the
+    // system doesn't allow frames narrower than their caption buttons, so
+    // check the restored size against the size which was really saved and not
+    // the one we had asked for.
+    wxSize sizeSaved;
+    REQUIRE(GetConfig().Read(FRAME_OPTIONS_PREFIX "/w", &sizeSaved.x));
+    REQUIRE(GetConfig().Read(FRAME_OPTIONS_PREFIX "/h", &sizeSaved.y));
+
+    const int dpi = wxTheApp->GetTopWindow()->GetDPI().y;
+
+    // All the DPI values used in practice are even, which allows us to use
+    // exact values in the checks below.
+    REQUIRE(dpi % 2 == 0);
+
+    // The DPI must have been saved together with the geometry.
+    int dpiSaved = -1;
+    CHECK(GetConfig().Read(FRAME_OPTIONS_PREFIX "/DPI", &dpiSaved));
+    CHECK(dpiSaved == dpi);
+
+    SECTION("Rescale")
+    {
+        // Pretend that the geometry had been saved at half the current DPI:
+        // in this case the size must be doubled when restoring it, but not the
+        // position, which doesn't depend on the DPI.
+        GetConfig().Write(FRAME_OPTIONS_PREFIX "/DPI", dpi / 2);
+
+        auto const frame = RestorePersistenceTestFrame();
+
+        CHECK(frame->GetSize() == sizeSaved*2);
+        CHECK(frame->GetPosition() == pos);
+    }
+
+    SECTION("Compatibility")
+    {
+        // The geometry saved by the previous versions of the library doesn't
+        // have any DPI associated with it and must be restored as is.
+        GetConfig().DeleteEntry(FRAME_OPTIONS_PREFIX "/DPI");
+
+        auto const frame = RestorePersistenceTestFrame();
+
+        CHECK(frame->GetSize() == sizeSaved);
+        CHECK(frame->GetPosition() == pos);
     }
 }
 

@@ -25,6 +25,7 @@ set(TEST_GUI_SRC
     graphics/clipper.cpp
     graphics/clippingbox.cpp
     graphics/svgattributes.cpp
+    graphics/svgfiledc.cpp
     graphics/coords.cpp
     graphics/graphbitmap.cpp
     graphics/graphmatrix.cpp
@@ -235,6 +236,13 @@ wx_add_test(test_gui ${APP_TYPE} ${TEST_GUI_SRC}
     DATA ${TEST_GUI_DATA}
     RES_BUNDLE ${TEST_GUI_RES_BUNDLE}
     )
+
+# wxUIActionSimulator uses global input state, so this test must not run
+# concurrently with other CTest processes.
+if(TEST test_gui)
+    set_tests_properties(test_gui PROPERTIES RUN_SERIAL TRUE)
+endif()
+
 if(wxUSE_AUI)
     wx_exe_link_libraries(test_gui wxaui)
 endif()
