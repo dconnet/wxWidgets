@@ -593,7 +593,7 @@ void wxWidgetCocoaImpl::SetupKeyEvent(wxKeyEvent &wxevent , NSEvent * nsEvent, N
     // OS X generates events with key codes in Unicode private use area for
     // unprintable symbols such as cursor arrows (WXK_UP is mapped to U+F700)
     // and function keys (WXK_F2 is U+F705). We don't want to use them as the
-    // result of wxKeyEvent::GetUnicodeKey() however as it's supposed to return
+    // result of wxKeyEvent::GetUnicodeChar() however as it's supposed to return
     // WXK_NONE for "non characters" so explicitly exclude them.
     //
     // We only exclude the private use area inside the Basic Multilingual Plane
@@ -1085,8 +1085,38 @@ void wxOSX_insertText(NSView* self, SEL _cmd, NSString* text);
 {
     wxUnusedVar(aRange);
     wxUnusedVar(actualRange);
+
+    // We don't support ranges, but at least return the position where the
+    // text is being input, if the window provides it.
+    wxWidgetCocoaImpl* impl = (wxWidgetCocoaImpl* ) wxWidgetImpl::FindFromWXWidget( self );
+    if ( wxWindowMac* const win = impl ? impl->GetWXPeer() : nullptr )
+    {
+        const wxRect rect = win->GetInputMethodCursorRect();
+        if ( !rect.IsEmpty() )
+        {
+            // This function must return the rectangle in screen coordinates.
+            const wxRect rectScreen(win->ClientToScreen(rect.GetPosition()),
+                                    rect.GetSize());
+            return wxToNSRect(nil, rectScreen);
+        }
+    }
+
     return NSMakeRect(0, 0, 0, 0);
 }
+
+- (NSTextInputContext *)inputContext
+{
+    // Returning nil from here disables the input method for this view.
+    wxWidgetCocoaImpl* impl = (wxWidgetCocoaImpl* ) wxWidgetImpl::FindFromWXWidget( self );
+    if ( wxWindowMac* const win = impl ? impl->GetWXPeer() : nullptr )
+    {
+        if ( !win->IsInputMethodEnabled() )
+            return nil;
+    }
+
+    return [super inputContext];
+}
+
 - (NSUInteger)characterIndexForPoint:(NSPoint)aPoint
 {
     wxUnusedVar(aPoint);
@@ -1348,6 +1378,23 @@ void wxOSX_drawRect(NSView* self, SEL _cmd, NSRect rect)
 #endif // wxUSE_THREADS
 
     return impl->drawRect(&rect, self, _cmd);
+}
+
+BOOL wxOSX_accessibilityPerformShowMenu(NSView* self, SEL _cmd)
+{
+    // Let the application show its own context menu when VoiceOver asks for
+    // it, in the same way as it does when the right mouse button is pressed.
+    wxWidgetCocoaImpl* impl = (wxWidgetCocoaImpl* ) wxWidgetImpl::FindFromWXWidget( self );
+    if ( impl )
+    {
+        wxWindowMac* const wxpeer = impl->GetWXPeer();
+        if ( wxpeer && wxpeer->WXSendContextMenuEvent(wxDefaultPosition) )
+            return YES;
+    }
+
+    wxOSX_FocusHandlerPtr superimpl = (wxOSX_FocusHandlerPtr)
+        [[self superclass] instanceMethodForSelector:_cmd];
+    return superimpl ? superimpl(self, _cmd) : NO;
 }
 
 void wxOSX_controlAction(NSView* self, SEL _cmd, id sender)
@@ -2726,6 +2773,7 @@ void wxOSXCocoaClassAddWXMethods(Class c, wxOSXSkipOverrides skipFlags)
         wxOSX_CLASS_ADD_METHOD(c, @selector(drawRect:), (IMP) wxOSX_drawRect, "v@:{_NSRect={_NSPoint=ff}{_NSSize=ff}}" )
 
     wxOSX_CLASS_ADD_METHOD(c, @selector(controlAction:), (IMP) wxOSX_controlAction, "v@:@" )
+    wxOSX_CLASS_ADD_METHOD(c, @selector(accessibilityPerformShowMenu), (IMP) wxOSX_accessibilityPerformShowMenu, "c@:" )
     wxOSX_CLASS_ADD_METHOD(c, @selector(controlDoubleAction:), (IMP) wxOSX_controlDoubleAction, "v@:@" )
 
 #if wxUSE_DRAG_AND_DROP

@@ -1473,8 +1473,52 @@ gtk_window_key_press_callback( GtkWidget *WXUNUSED(widget),
 
 int wxWindowGTK::GTKIMFilterKeypress(GdkEventKey* event) const
 {
-    return m_imContext ? gtk_im_context_filter_keypress(m_imContext, event)
-                       : FALSE;
+    if ( !m_imContext || !IsInputMethodEnabled() )
+        return FALSE;
+
+    // Note that the input method may handle the keys before we get them, e.g.
+    // Fcitx does this by default, so updating the cursor location here is not
+    // enough and UpdateInputMethodCursorRect() must be called when it
+    // changes, but still do it here to be sure it's up to date.
+    GTKUpdateIMCursorRect(m_imContext);
+
+    return gtk_im_context_filter_keypress(m_imContext, event);
+}
+
+void wxWindowGTK::DoEnableInputMethod(bool enable)
+{
+    // We don't need to do anything if we don't have the focus, as the input
+    // method state will be taken into account when we get it.
+    if ( !m_imContext || gs_currentFocus != this )
+        return;
+
+    if ( enable )
+    {
+        GTKUpdateIMCursorRect(m_imContext);
+        gtk_im_context_focus_in(m_imContext);
+    }
+    else
+    {
+        gtk_im_context_reset(m_imContext);
+        gtk_im_context_focus_out(m_imContext);
+    }
+}
+
+void wxWindowGTK::DoUpdateInputMethodCursorRect()
+{
+    if ( m_imContext )
+        GTKUpdateIMCursorRect(m_imContext);
+}
+
+// Let the input method know where to show its windows, if we know it.
+void wxWindowGTK::GTKUpdateIMCursorRect(GtkIMContext* imContext) const
+{
+    const wxRect rect = GetInputMethodCursorRect();
+    if ( rect.IsEmpty() )
+        return;
+
+    GdkRectangle area = { rect.x, rect.y, rect.width, rect.height };
+    gtk_im_context_set_cursor_location(imContext, &area);
 }
 
 extern "C" {
@@ -4496,6 +4540,22 @@ void wxWindowGTK::DoSetClientSize( int width, int height )
     SetSize(width + (size.x - clientSize.x), height + (size.y - clientSize.y));
 }
 
+// Return the spacing between the scrollbars and the contents of the window.
+static int wxGetScrollbarSpacing(GtkWidget* widget)
+{
+    // get scrollbar spacing the same way the GTK-private function
+    // _gtk_scrolled_window_get_scrollbar_spacing() does it
+    int scrollbar_spacing =
+        GTK_SCROLLED_WINDOW_GET_CLASS(widget)->scrollbar_spacing;
+    if (scrollbar_spacing < 0)
+    {
+        gtk_widget_style_get(
+            widget, "scrollbar-spacing", &scrollbar_spacing, nullptr);
+    }
+
+    return scrollbar_spacing;
+}
+
 #ifdef __WXGTK3__
 
 // Check whether the given scrolled window uses overlay scrollbars, i.e. the
@@ -4572,15 +4632,7 @@ void wxWindowGTK::DoGetClientSize( int *width, int *height ) const
                                            &policy[ScrollDir_Horz],
                                            &policy[ScrollDir_Vert]);
 
-            // get scrollbar spacing the same way the GTK-private function
-            // _gtk_scrolled_window_get_scrollbar_spacing() does it
-            int scrollbar_spacing =
-                GTK_SCROLLED_WINDOW_GET_CLASS(m_widget)->scrollbar_spacing;
-            if (scrollbar_spacing < 0)
-            {
-                gtk_widget_style_get(
-                    m_widget, "scrollbar-spacing", &scrollbar_spacing, nullptr);
-            }
+            const int scrollbar_spacing = wxGetScrollbarSpacing(m_widget);
 
             for ( int i = 0; i < ScrollDir_Max; i++ )
             {
@@ -5051,8 +5103,13 @@ bool wxWindowGTK::GTKHandleFocusIn()
                "handling focus_in event for %s",
                wxDumpWindow(this));
 
-    if (m_imContext)
+    if (m_imContext && IsInputMethodEnabled())
+    {
+        // Set the cursor location before giving focus to the input method,
+        // as it may use it immediately.
+        GTKUpdateIMCursorRect(m_imContext);
         gtk_im_context_focus_in(m_imContext);
+    }
 
     gs_currentFocus = this;
 
@@ -5138,7 +5195,7 @@ void wxWindowGTK::GTKHandleFocusOutNoDeferring()
 
     gs_lastFocus = this;
 
-    if (m_imContext)
+    if (m_imContext && IsInputMethodEnabled())
         gtk_im_context_focus_out(m_imContext);
 
     if ( gs_currentFocus != this )
@@ -6986,12 +7043,37 @@ int wxWindowGTK::GetScrollRange( int orient ) const
 
 int wxWindowGTK::GetScrollbarSize( int orient ) const
 {
+    if ( GTK_IS_SCROLLED_WINDOW(m_widget) )
+    {
 #ifdef __WXGTK3__
-    // Overlay scrollbars are drawn on top of the window contents and so don't
-    // take any space in it.
-    if ( GTK_IS_SCROLLED_WINDOW(m_widget) && wxUsesOverlayScrollbars(m_widget) )
-        return 0;
+        // Overlay scrollbars are drawn on top of the window contents and so
+        // don't take any space in it.
+        if ( wxUsesOverlayScrollbars(m_widget) )
+            return 0;
 #endif // __WXGTK3__
+
+        // Account for the spacing between the scrollbar and the window
+        // contents as this is what DoGetClientSize() above does.
+        const ScrollDir dir = ScrollDirFromOrient(orient);
+        if ( GtkRange* const range = m_scrollBar[dir] )
+        {
+            GtkWidget* const widget = GTK_WIDGET(range);
+
+            int size;
+#ifdef __WXGTK3__
+            if ( dir == ScrollDir_Horz )
+                gtk_widget_get_preferred_height(widget, nullptr, &size);
+            else
+                gtk_widget_get_preferred_width(widget, nullptr, &size);
+#else // !__WXGTK3__
+            GtkRequisition req;
+            gtk_widget_size_request(widget, &req);
+            size = dir == ScrollDir_Horz ? req.height : req.width;
+#endif // __WXGTK3__/!__WXGTK3__
+
+            return size + wxGetScrollbarSpacing(m_widget);
+        }
+    }
 
     return wxWindowBase::GetScrollbarSize(orient);
 }
