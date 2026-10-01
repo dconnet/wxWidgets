@@ -20,6 +20,7 @@
     #include "wx/frame.h"
 #endif // WX_PRECOMP
 
+#include "wx/button.h"
 #include "wx/panel.h"
 
 #include "wx/aui/auibar.h"
@@ -28,6 +29,7 @@
 #include "wx/aui/serializer.h"
 
 #include "asserthelper.h"
+#include "waitfor.h"
 
 #ifdef __WXMSW__
     #include "wx/msw/wrapwin.h"
@@ -204,6 +206,56 @@ TEST_CASE_METHOD(AuiManagerTestCase, "wxAuiManager::DockFloatingPaneOnDClick", "
     CHECK( panel->GetParent() == frame.get() );
 }
 
+TEST_CASE_METHOD(AuiManagerTestCase, "wxAuiManager::DestroyFloatingFrame", "[aui]")
+{
+    wxPanel* const panel = new wxPanel(frame.get());
+
+    REQUIRE( manager.AddPane(panel,
+                             wxAuiPaneInfo().Name("pane").Caption("Pane").Left()) );
+    manager.Update();
+
+    manager.GetPane(panel).Float();
+    manager.Update();
+
+    wxFrame* const floatingFrame = manager.GetPane(panel).frame;
+    REQUIRE( floatingFrame );
+
+    SECTION( "Dock" )
+    {
+        manager.GetPane(panel).Dock();
+        manager.Update();
+    }
+
+    SECTION( "Detach" )
+    {
+        REQUIRE( manager.DetachPane(panel) );
+    }
+
+    SECTION( "Close" )
+    {
+        wxAuiPaneInfo& pane = manager.GetPane(panel);
+        pane.DestroyOnClose();
+        manager.ClosePane(pane);
+    }
+
+    SECTION( "Close frame" )
+    {
+        // This calls Destroy() twice: first from wxAuiManager::ClosePane()
+        // called by the frame close event handler and then from the handler
+        // itself.
+        floatingFrame->Close();
+
+        CHECK( manager.GetPane(panel).frame == nullptr );
+        CHECK( !manager.GetPane(panel).IsShown() );
+    }
+
+    // The floating frame is destroyed only during the next idle time, but it
+    // may still get events before this happens and this used to result in
+    // accessing already deleted sizer items, see #26264.
+    REQUIRE( wxPendingDelete.Member(floatingFrame) );
+    floatingFrame->SendSizeEvent();
+}
+
 TEST_CASE_METHOD(AuiManagerTestCase, "wxAuiManager::SizerClick", "[aui]")
 {
     wxWindow* const first = new wxPanel(frame.get());
@@ -372,6 +424,28 @@ TEST_CASE_METHOD(AuiNotebookTestCase, "wxAuiNotebook::RTTI", "[aui][rtti]")
     CHECK( wxDynamicCast(book, wxAuiNotebook) == nb.get() );
 
     CHECK( wxDynamicCast(nb.get(), wxBookCtrlBase) == book );
+}
+
+TEST_CASE_METHOD(AuiNotebookTestCase, "wxAuiNotebook::NonTabPaneRejected",
+                 "[aui]")
+{
+    wxPanel *page = new wxPanel(nb.get());
+    REQUIRE( nb->AddPage(page, "Page") );
+
+    wxPanel *pane = new wxPanel(nb.get());
+    wxAuiManager* const mgr = wxAuiManager::GetManager(nb.get());
+    REQUIRE( mgr );
+
+    wxAuiPaneInfo paneInfo;
+    paneInfo.Name("plain-pane").Right().CaptionVisible(false);
+
+#if wxDEBUG_LEVEL
+    WX_ASSERT_FAILS_WITH_ASSERT( mgr->AddPane(pane, paneInfo) );
+#else
+    CHECK( !mgr->AddPane(pane, paneInfo) );
+#endif
+
+    CHECK( !mgr->GetPane("plain-pane").IsOk() );
 }
 
 TEST_CASE_METHOD(AuiNotebookTestCase, "wxAuiNotebook::FindPage", "[aui]")
@@ -556,6 +630,36 @@ TEST_CASE("wxAuiNotebook::ButtonEvent", "[aui]")
         // closed, as this was the case in the previous versions too.
         CHECK( nb.GetPageCount() == 2 );
     }
+}
+
+TEST_CASE_METHOD(AuiNotebookTestCase,
+                 "wxAuiNotebook::ChildFocusUsesCurrentFocus", "[aui][focus]")
+{
+    wxPanel *const page1 = new wxPanel(nb.get());
+    wxButton *const button1 = new wxButton(page1, wxID_ANY, "Button 1");
+    wxPanel *const page2 = new wxPanel(nb.get());
+    wxButton *const button2 = new wxButton(page2, wxID_ANY, "Button 2");
+
+    REQUIRE( nb->AddPage(page1, "Page 1", true) );
+    REQUIRE( nb->AddPage(page2, "Page 2") );
+
+    nb->SetSize(nb->FromDIP(wxSize(400, 300)));
+
+    REQUIRE( nb->SetSelection(1) == 0 );
+
+    button2->SetFocus();
+
+    if ( !WaitFor("second page button focus",
+                  [button2]() { return wxWindow::FindFocus() == button2; }) )
+    {
+        WARN("Skipping stale child focus test: couldn't focus the button");
+        return;
+    }
+
+    wxChildFocusEvent event(button1);
+    nb->ProcessWindowEvent(event);
+
+    CHECK( nb->GetSelection() == 1 );
 }
 
 TEST_CASE_METHOD(AuiNotebookTestCase, "wxAuiNotebook::Layout", "[aui]")
