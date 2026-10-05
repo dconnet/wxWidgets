@@ -170,6 +170,7 @@ public :
     void                SetToolTip( wxToolTip* tooltip ) override;
     void                SetAccessibilityLabel(const wxString& label) override;
     void                SetAccessibilityTitleElement(wxWidgetImpl* title) override;
+    bool                HasAccessibilityTitle() const override;
 
     void                InstallEventHandler( WXWidget control = nullptr ) override;
     bool                EnableTouchEvents(int eventsMask) override;
@@ -219,6 +220,7 @@ public :
     virtual void                cursorUpdate(WX_NSEvent event, WXWidget slf, void* _cmd);
     virtual void                keyEvent(WX_NSEvent event, WXWidget slf, void* _cmd);
     virtual void                insertText(NSString* text, WXWidget slf, void* _cmd);
+    void                        textInputEventHandled();
     // Returns true if the event was processed by a user-defined event handler.
     virtual bool                doCommandBySelector(void* sel, WXWidget slf, void* _cmd);
     virtual bool                acceptsFirstResponder(WXWidget slf, void* _cmd);
