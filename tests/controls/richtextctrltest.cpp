@@ -461,6 +461,21 @@ TEST_CASE_METHOD(RichTextCtrlTestCase, "RichTextCtrl::LineBreak",
     CHECK(m_rich->GetCaretPosition() == 6);
 }
 
+TEST_CASE_METHOD(RichTextCtrlTestCase,
+                 "RichTextCtrl::MoveDownToSingleCharacterLine",
+                 "[richtextctrl]")
+{
+    m_rich->SetValue("This line contains several characters.\nX");
+
+    m_rich->SetInsertionPointEnd();
+    const long endOfSingleCharacterLine = m_rich->GetCaretPosition();
+
+    m_rich->SetInsertionPoint(10);
+    REQUIRE(m_rich->MoveDown());
+
+    CHECK(m_rich->GetCaretPosition() == endOfSingleCharacterLine);
+}
+
 TEST_CASE_METHOD(RichTextCtrlTestCase, "RichTextCtrl::Selection",
                  "[richtextctrl]")
 {
@@ -638,6 +653,28 @@ TEST_CASE_METHOD(RichTextCtrlTestCase, "RichTextCtrl::Underline",
     m_rich->SetSelection(40, 45);
 
     CHECK(!m_rich->IsSelectionUnderlined());
+}
+
+static void CheckTextEffectToggle(wxRichTextCtrl& rich, int effect)
+{
+    CHECK(!rich.DoesSelectionHaveTextEffectFlag(effect));
+
+    rich.ApplyTextEffectToSelection(effect);
+    CHECK(rich.DoesSelectionHaveTextEffectFlag(effect));
+
+    rich.ApplyTextEffectToSelection(effect);
+    CHECK(!rich.DoesSelectionHaveTextEffectFlag(effect));
+}
+
+TEST_CASE_METHOD(RichTextCtrlTestCase, "RichTextCtrl::TextEffect",
+                 "[richtextctrl]")
+{
+    m_rich->SetValue("text");
+    m_rich->SetInsertionPointEnd();
+
+    CheckTextEffectToggle(*m_rich, wxTEXT_ATTR_EFFECT_STRIKETHROUGH);
+    CheckTextEffectToggle(*m_rich, wxTEXT_ATTR_EFFECT_SUPERSCRIPT);
+    CheckTextEffectToggle(*m_rich, wxTEXT_ATTR_EFFECT_SUBSCRIPT);
 }
 
 TEST_CASE_METHOD(RichTextCtrlTestCase, "RichTextCtrl::Indent",
@@ -840,6 +877,26 @@ TEST_CASE_METHOD(RichTextCtrlTestCase, "RichTextCtrl::Font", "[richtextctrl]")
     m_rich->GetStyle(5, fontstyle);
 
     CHECK(fontstyle.GetFont() == font);
+}
+
+TEST_CASE_METHOD(RichTextCtrlTestCase, "RichTextCtrl::TextEffects",
+                 "[richtextctrl]")
+{
+    const int effect = wxTEXT_ATTR_EFFECT_SUPERSCRIPT;
+
+    m_rich->ApplyTextEffectToSelection(effect);
+    CHECK(m_rich->DoesSelectionHaveTextEffectFlag(effect));
+
+    m_rich->WriteText("x");
+
+    m_rich->ApplyTextEffectToSelection(effect);
+    CHECK(!m_rich->DoesSelectionHaveTextEffectFlag(effect));
+
+    m_rich->WriteText("y");
+
+    wxTextAttr style;
+    m_rich->GetStyle(1, style);
+    CHECK((style.GetTextEffects() & effect) == 0);
 }
 
 TEST_CASE_METHOD(RichTextCtrlTestCase, "RichTextCtrl::Delete",
