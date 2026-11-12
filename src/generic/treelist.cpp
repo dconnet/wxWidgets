@@ -632,7 +632,11 @@ void wxTreeListModel::CheckItem(Node* item, wxCheckBoxState checkedState)
 
     item->m_checkedState = checkedState;
 
-    ItemChanged(ToDVI(item));
+    // The root item is never shown, so there is nothing to refresh for it and
+    // it doesn't correspond to any valid wxDataViewItem, and notifying about
+    // an invalid item is not allowed.
+    if ( item != m_root )
+        ItemChanged(ToDVI(item));
 }
 
 void
