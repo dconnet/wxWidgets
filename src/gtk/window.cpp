@@ -3103,15 +3103,7 @@ wxMouseState wxGetMouseState()
     GdkWindow* window = wxGetTopLevelGDK();
     GdkDisplay* display = gdk_window_get_display(window);
 #ifdef __WXGTK3__
-#ifdef __WXGTK4__
-    GdkSeat* seat = gdk_display_get_default_seat(display);
-    GdkDevice* device = gdk_seat_get_pointer(seat);
-#else
-    wxGCC_WARNING_SUPPRESS(deprecated-declarations)
-    GdkDeviceManager* manager = gdk_display_get_device_manager(display);
-    GdkDevice* device = gdk_device_manager_get_client_pointer(manager);
-    wxGCC_WARNING_RESTORE()
-#endif
+    GdkDevice* device = wx_get_gdk_device_from_display(display);
     gdk_device_get_position(device, nullptr, &x, &y);
     gdk_device_get_state(device, window, nullptr, &mask);
 #else
@@ -3312,6 +3304,9 @@ bool wxWindowGTK::Create( wxWindow *parent,
             G_CALLBACK(parent_set), this);
     }
 #endif
+
+    GTKOnWidgetCreated();
+
     if (!HasFlag(wxHSCROLL) && !HasFlag(wxVSCROLL))
         m_widget = m_wxwindow;
     else
@@ -5949,14 +5944,14 @@ void WarpPointer(GdkWindow* window, int x, int y)
     // pointer, so just use the first one which has a pointer to warp.
     for ( const auto& seat : WLGlobals.seats )
     {
-        if ( seat.pointer && seat.lastEnterSerial )
+        if ( seat->pointer && seat->lastEnterSerial )
         {
             wp_pointer_warp_v1_warp_pointer(WLGlobals.pointer_warp.get(),
                 gdk_wayland_window_get_wl_surface(window),
-                seat.pointer.get(),
+                seat->pointer.get(),
                 wl_fixed_from_int(x),
                 wl_fixed_from_int(y),
-                seat.lastEnterSerial
+                seat->lastEnterSerial
             );
         }
     }
@@ -7436,15 +7431,7 @@ void wxGetMousePosition(int* x, int* y)
 {
     GdkDisplay* display = gdk_window_get_display(wxGetTopLevelGDK());
 #ifdef __WXGTK3__
-#ifdef __WXGTK4__
-    GdkSeat* seat = gdk_display_get_default_seat(display);
-    GdkDevice* device = gdk_seat_get_pointer(seat);
-#else
-    wxGCC_WARNING_SUPPRESS(deprecated-declarations)
-    GdkDeviceManager* manager = gdk_display_get_device_manager(display);
-    GdkDevice* device = gdk_device_manager_get_client_pointer(manager);
-    wxGCC_WARNING_RESTORE()
-#endif
+    GdkDevice* device = wx_get_gdk_device_from_display(display);
     gdk_device_get_position(device, nullptr, x, y);
 #else
     gdk_display_get_pointer(display, nullptr, x, y, nullptr);
